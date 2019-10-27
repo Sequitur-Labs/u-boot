@@ -18,8 +18,13 @@
 
 /* SDRAM */
 #define CONFIG_NR_DRAM_BANKS		1
+# ifdef CONFIG_CORETEE
+#define CONFIG_SYS_SDRAM_BASE		0x21400000
+#define CONFIG_SYS_SDRAM_SIZE		0x6c00000
+# else
 #define CONFIG_SYS_SDRAM_BASE		0x20000000
 #define CONFIG_SYS_SDRAM_SIZE		0x8000000
+# endif
 
 #ifdef CONFIG_SPL_BUILD
 #define CONFIG_SYS_INIT_SP_ADDR		0x218000
@@ -28,13 +33,26 @@
 	(CONFIG_SYS_SDRAM_BASE + 16 * 1024 - GENERATED_GBL_DATA_SIZE)
 #endif
 
+# ifdef CONFIG_CORETEE
+# define CONFIG_SYS_LOAD_ADDR           0x23000000 /* load address */
+# else
 #define CONFIG_SYS_LOAD_ADDR		0x22000000 /* load address */
+# endif
+
+/* SerialFlash */
+#ifdef CONFIG_CMD_SF
+#define CONFIG_SF_DEFAULT_BUS		0
+#define CONFIG_SF_DEFAULT_CS		0
+#define CONFIG_SF_DEFAULT_SPEED		30000000
+#endif
 
 /* NAND flash */
 #undef CONFIG_CMD_NAND
 
 /* SPI flash */
+# ifndef CONFIG_CORETEE
 #define CONFIG_SF_DEFAULT_SPEED		66000000
+# endif
 
 #undef CONFIG_BOOTCOMMAND
 #ifdef CONFIG_SD_BOOT
@@ -47,6 +65,10 @@
 #endif
 
 #ifdef CONFIG_QSPI_BOOT
+#undef CONFIG_ENV_SPI_BUS
+#undef CONFIG_ENV_SPI_CS
+#define CONFIG_ENV_SPI_BUS		0
+#define CONFIG_ENV_SPI_CS		0
 #undef CONFIG_BOOTARGS
 #define CONFIG_BOOTARGS \
 	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rw rootwait"
@@ -55,9 +77,17 @@
 /* SPL */
 #define CONFIG_SPL_TEXT_BASE		0x200000
 #define CONFIG_SPL_MAX_SIZE		0x10000
+# ifdef CONFIG_CORETEE
+# define CONFIG_SPL_BSS_START_ADDR      0x22000000
+# else
 #define CONFIG_SPL_BSS_START_ADDR	0x20000000
+# endif
 #define CONFIG_SPL_BSS_MAX_SIZE		0x80000
+# ifdef CONFIG_CORETEE
+# define CONFIG_SYS_SPL_MALLOC_START    0x22080000
+# else
 #define CONFIG_SYS_SPL_MALLOC_START	0x20080000
+# endif
 #define CONFIG_SYS_SPL_MALLOC_SIZE	0x80000
 
 #define CONFIG_SYS_MONITOR_LEN		(512 << 10)
