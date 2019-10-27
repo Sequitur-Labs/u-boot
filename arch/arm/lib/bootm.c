@@ -27,6 +27,10 @@
 #include <bootm.h>
 #include <vxworks.h>
 
+# if defined(CONFIG_CORETEE)
+# include <sm_func.h>
+# endif
+
 #ifdef CONFIG_ARMV7_NONSEC
 #include <asm/armv7.h>
 #endif
@@ -388,6 +392,10 @@ static void boot_jump_linux(bootm_headers_t *images, int flag)
 	else
 		r2 = gd->bd->bi_boot_params;
 
+# ifdef CONFIG_CORETEE
+	tee_final();
+# endif
+	
 	if (!fake) {
 #ifdef CONFIG_ARMV7_NONSEC
 		if (armv7_boot_nonsec()) {

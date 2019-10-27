@@ -604,6 +604,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&qspi0_clk>;
+				clock-names = "pclk";
 				status = "disabled";
 			};
 
@@ -614,6 +615,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&qspi1_clk>;
+				clock-names = "pclk";
 				status = "disabled";
 			};
 

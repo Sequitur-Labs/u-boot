@@ -13,6 +13,8 @@ obj-$(CONFIG_SAMA5D4) += bootparams_atmel.o mpddrc.o spl_atmel.o matrix.o atmel_
 obj-y += spl.o
 endif
 
+obj-$(CONFIG_CORETEE) += sm_func.o
+
 obj-y += clock.o
 obj-$(CONFIG_CPU_ARM920T)	+= arm920t/
 obj-$(CONFIG_CPU_ARM926EJS)	+= arm926ejs/

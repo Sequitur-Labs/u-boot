@@ -257,6 +257,13 @@ endchoice
 config SYS_SOC
 	default "at91"
 
+config CORETEE
+	bool "Enable CoreTEE"
+	default n
+	depends on ARCH_AT91
+	help
+	  Enable CoreTEE.
+
 source "board/atmel/at91rm9200ek/Kconfig"
 source "board/atmel/at91sam9260ek/Kconfig"
 source "board/atmel/at91sam9261ek/Kconfig"
