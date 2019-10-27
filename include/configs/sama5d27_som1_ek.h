@@ -12,7 +12,7 @@
 #include "at91-sama5_common.h"
 
 #undef CONFIG_SYS_AT91_MAIN_CLOCK
-#define CONFIG_SYS_AT91_MAIN_CLOCK      24000000 /* from 24 MHz crystal */
+#define CONFIG_SYS_AT91_MAIN_CLOCK      12000000 /* from 12 MHz crystal */
 
 #define CONFIG_MISC_INIT_R
 
@@ -41,7 +41,7 @@
 /* u-boot env in sd/mmc card */
 #define CONFIG_ENV_SIZE		0x4000
 /* bootstrap + u-boot + env in sd card */
-#define CONFIG_BOOTCOMMAND	"fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x21000000 at91-sama5d27_som1_ek.dtb; " \
+#define CONFIG_BOOTCOMMAND	"mmc dev 1; fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x21000000 at91-sama5d27_som1_ek.dtb; " \
 				"fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x22000000 zImage; " \
 				"bootz 0x22000000 - 0x21000000"
 #endif
@@ -49,7 +49,7 @@
 #ifdef CONFIG_QSPI_BOOT
 #undef CONFIG_BOOTARGS
 #define CONFIG_BOOTARGS \
-	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk0p2 rw rootwait"
+	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rw rootwait"
 #endif
 
 /* SPL */
