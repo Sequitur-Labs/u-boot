@@ -77,7 +77,7 @@ int dram_init(void)
 {
 # ifdef CONFIG_CORETEE
   gd->ram_size = CONFIG_SYS_SDRAM_SIZE;
-#
+# else
 	gd->ram_size = get_ram_size((void *)CONFIG_SYS_SDRAM_BASE,
 				    CONFIG_SYS_SDRAM_SIZE);
 # endif
@@ -168,6 +168,9 @@ void mem_init(void)
 
 void at91_pmc_init(void)
 {
+# ifdef CONFIG_HD96
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
+# endif
 	u32 tmp;
 
 	/*
@@ -182,9 +185,17 @@ void at91_pmc_init(void)
 
 	tmp = AT91_PMC_PLLAR_29 |
 	      AT91_PMC_PLLXR_PLLCOUNT(0x3f) |
+# ifdef CONFIG_HD96
+	      AT91_PMC_PLLXR_MUL(82) |
+# else
 	      AT91_PMC_PLLXR_MUL(40) |
+# endif
 	      AT91_PMC_PLLXR_DIV(1);
 	at91_plla_init(tmp);
+
+# ifdef CONFIG_HD96
+	writel(0x0 << 8, &pmc->pllicpr);
+# endif
 
 	tmp = AT91_PMC_MCKR_H32MXDIV |
 	      AT91_PMC_MCKR_PLLADIV_2 |

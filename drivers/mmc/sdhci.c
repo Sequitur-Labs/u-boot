@@ -254,7 +254,9 @@ static int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
 		sdhci_writeb(host, 0xe, SDHCI_TIMEOUT_CONTROL);
 	}
 
+# ifdef CONFIG_HD96
 	sdhci_writeb(host, sdhci_readb(host, 0x204) | 0x80, 0x204 );
+# endif
 
 	sdhci_writel(host, cmd->cmdarg, SDHCI_ARGUMENT);
 #ifdef CONFIG_MMC_SDHCI_SDMA

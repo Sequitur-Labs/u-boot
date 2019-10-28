@@ -264,6 +264,13 @@ config CORETEE
 	help
 	  Enable CoreTEE.
 
+config HD96
+	bool "Select HD96 D27-SIP variant"
+	default n
+	depends on TARGET_SAMA5D27_SOM1_EK
+	help
+	  Enable HD96 D27 deltas.
+
 source "board/atmel/at91rm9200ek/Kconfig"
 source "board/atmel/at91sam9260ek/Kconfig"
 source "board/atmel/at91sam9261ek/Kconfig"
