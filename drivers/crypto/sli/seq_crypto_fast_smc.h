@@ -7,10 +7,10 @@
  * We use the 8 SMC registers in the following way:
  * r0 SMC function ID and return code
  * r1 control word
- * r2 input buffer address
- * r3 input buffer size
- * r4 output buffer address
- * r5 output buffer size
+ * r2 output buffer address
+ * r3 output buffer size
+ * r4 input buffer address
+ * r5 input buffer size
  * r6 op buffer address
  * r7 op buffer size
  *
@@ -18,6 +18,8 @@
  * input buffer in use flag
  * output buffer in use flag
  * op buffer in use flag
+ * flag for mapping the given memory region in the TEE
+ * flag for disabling the SMC crypto interface in the TEE
  *
  * The output buffer size register will contain the number of bytes written
  * on return.
@@ -128,7 +130,7 @@ typedef struct {
 
 #define SEQ_SMC_ALG_RNG               0x40
 
-#define SEQ_SMC_KEY_TYPE_AES          0x02
+#define SEQ_SMC_KEY_TYPE_AES          0x01
 #define SEQ_SMC_KEY_TYPE_HMAC         0x02
 #define SEQ_SMC_KEY_TYPE_ECDSA_PRV    0x11
 #define SEQ_SMC_KEY_TYPE_ECDSA_PUB    0x12
