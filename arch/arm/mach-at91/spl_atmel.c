@@ -13,6 +13,7 @@
 #include <asm/arch/at91_wdt.h>
 #include <asm/arch/clk.h>
 #include <spl.h>
+#include <sli_crypto.h>
 
 static void switch_to_main_crystal_osc(void)
 {
@@ -184,6 +185,14 @@ void coretee_setup(void)
 	   0,
 	   0);
 
+#ifdef CONFIG_CORETEE_CRYPTO
+/*
+  initialize the SMC crypto interface
+ */
+  //sliCryptoInit(NULL, 1024);
+  sliCryptoInit(addr, 1024);	/* Use coretee copy location as buffer space */
+  sliCryptoTerm(1);
+#endif
 
 
 /*

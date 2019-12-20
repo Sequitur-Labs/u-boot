@@ -271,6 +271,15 @@ config HD96
 	help
 	  Enable HD96 D27 deltas.
 
+
+config CORETEE_CRYPTO
+        bool "Enable CoreTEE crypto via SMC"
+	default n
+	depends on CORETEE
+	help
+	  Enable CoreTEE crypto via SMC.
+
+
 source "board/atmel/at91rm9200ek/Kconfig"
 source "board/atmel/at91sam9260ek/Kconfig"
 source "board/atmel/at91sam9261ek/Kconfig"
