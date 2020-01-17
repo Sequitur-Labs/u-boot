@@ -104,6 +104,9 @@ int sliBlobMasterDev(void);
 int sliBlobMasterProv(void);
 /* Generate the provisioning key based on the supplied BRN. */
 int sliBlobGenProv(const uint8_t *brn, size_t brnLen);
+/* Set private blob type.  The bits are sticky, and only apply in the
+ * Trusted security state. */
+int sliBlobSetPriBlobType(unsigned int type);
 
 /*
  *  *  * RNG in a single step.

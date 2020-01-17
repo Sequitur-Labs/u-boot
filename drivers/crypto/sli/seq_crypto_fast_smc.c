@@ -255,3 +255,24 @@ void freeOpGenProv(seq_smc_op_t *op) {
 	memset(op, 0, opGenProvLen(op));
 	//free(op);
 }
+
+seq_smc_op_priblob_t* newOpPriBlob(unsigned int priblob) {
+	seq_smc_op_priblob_t* op;
+	size_t opLen = sizeof(seq_smc_op_priblob_t);
+
+	if ((op = _calloc(opLen))) {
+		op->ctrl.bits.FUNC = SEQ_SMC_FUNC_PRI_BLOB;
+		op->priblob = priblob;
+	}
+
+	return op;
+}
+
+size_t opPriBlobLen(seq_smc_op_priblob_t *op) {
+	return sizeof(seq_smc_op_priblob_t);
+}
+
+void freeOpPriBlob(seq_smc_op_priblob_t *op) {
+	memset(op, 0, opPriBlobLen(op));
+	//free(op);
+}

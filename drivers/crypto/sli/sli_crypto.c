@@ -401,6 +401,27 @@ int sliBlobGenProv(const uint8_t *brn, size_t brnLen) {
 	return ret;
 }
 
+int sliBlobSetPriBlobType(unsigned int type) {
+	int ret = SEQ_SMC_SUCCESS;
+	seq_smc_op_priblob_t *op;
+	SEQ_SMC_CTRL ctrl = { 0 };
+
+	ctrl.bits.PTR_OP = 1;
+
+	if ((op = newOpPriBlob(type))) {
+		struct arm_smccc_res res;
+		arm_smccc_smc(SMC_CRYPTO, ctrl.val, 0, 0,
+		              0, 0, (unsigned long)op, opPriBlobLen(op),
+		              &res);
+		ret = (int)res.a0;
+
+		freeOpPriBlob(op);
+	} else
+		ret = SEQ_SMC_ERROR_OP_INIT;
+
+	return ret;
+}
+
 /*
  * RNG function
  */
@@ -621,16 +642,18 @@ static int sliTest(size_t maxBufLen) {
 	for (i = 0; i < 2; i++) {
 		size_t outLen;
 
-		if (i == 0) {	/* Device blob */
-			printf("SEQR Testing device blob: ");
-			sliBlobMasterDev();
-		} else {	/* Provisioning blob */
+		if (i == 0) {	/* Provisioning blob */
 			printf("SEQR Testing provisioning blob: ");
 			if ((ret = sliBlobGenProv(hashOut, sizeof(hashOut)))) {
 					printf("Error generating provisioning key 0x%8.8X\n", (uint32_t)ret);
 					continue;
 			}
 			sliBlobMasterProv();
+			sliBlobSetPriBlobType(1);
+		} else {	/* Device blob */
+			printf("SEQR Testing device blob: ");
+			sliBlobMasterDev();
+			sliBlobSetPriBlobType(3);
 		}
 
 		tmpLen = maxBufLen - 48;	/* Need space for added key and tag in output */

@@ -98,6 +98,11 @@ typedef struct {
 	uint8_t arr[];
 } seq_smc_op_blob_t;
 
+typedef struct {
+	SEQ_SMC_OP_CTRL ctrl;
+	uint32_t priblob;
+} seq_smc_op_priblob_t;
+
 #define SEQ_SMC_FUNC_HASH             0x01
 #define SEQ_SMC_FUNC_MAC              0x02
 #define SEQ_SMC_FUNC_CIPHER           0x03
@@ -107,6 +112,7 @@ typedef struct {
 #define SEQ_SMC_FUNC_MASTER_DEV       0x10
 #define SEQ_SMC_FUNC_MASTER_PROV      0x11
 #define SEQ_SMC_FUNC_GEN_PROV         0x12
+#define SEQ_SMC_FUNC_PRI_BLOB         0x13
 
 #define SEQ_SMC_ALG_HASH_SHA1         0x01
 #define SEQ_SMC_ALG_HASH_SHA224       0x02
@@ -148,6 +154,7 @@ size_t opRngLen(seq_smc_op_t *op);
 size_t opMasterDevLen(seq_smc_op_t *op);
 size_t opMasterProvLen(seq_smc_op_t *op);
 size_t opGenProvLen(seq_smc_op_t *op);
+size_t opPriBlobLen(seq_smc_op_priblob_t *op);
 
 seq_smc_op_t* newOpHash(unsigned int alg);
 seq_smc_op_mac_t* newOpMac(unsigned int alg,
@@ -168,6 +175,7 @@ seq_smc_op_t* newOpRng(void);
 seq_smc_op_t* newOpMasterDev(void);
 seq_smc_op_t* newOpMasterProv(void);
 seq_smc_op_t* newOpGenProv(void);
+seq_smc_op_priblob_t* newOpPriBlob(unsigned int priblob);
 
 void freeOpHash(seq_smc_op_t *op);
 void freeOpMac(seq_smc_op_mac_t *op);
@@ -178,6 +186,7 @@ void freeOpRng(seq_smc_op_t *op);
 void freeOpMasterDev(seq_smc_op_t *op);
 void freeOpMasterProv(seq_smc_op_t *op);
 void freeOpGenProv(seq_smc_op_t *op);
+void freeOpPriBlob(seq_smc_op_priblob_t *op);
 
 void copyTagOpAe(seq_smc_op_ae_t *op, uint8_t *tag);
 
