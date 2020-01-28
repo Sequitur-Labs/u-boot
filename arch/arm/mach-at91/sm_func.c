@@ -6,6 +6,7 @@ typedef unsigned int u32;
 # define PM_OK              0
 
 # define TEE_LOAD           (M_FASTCALL | 6)
+# define SLI_DECRYPT        (M_FASTCALL | 7)
 
 # define FW_VERSION 0x8300010c
 # define BSP_FINAL  0x8300010d
@@ -54,6 +55,19 @@ u32 tee_load(unsigned int tee_destaddr, /* where to place TEE in DDR: destinatio
 				    0);
 				    
   return ret;
+}
+
+
+uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_DECRYPT,
+																	comp_src,
+																	comp_dst,
+																	len,
+																	keyselect,
+																	0,0,0);
+	return res;
 }
 
 #endif

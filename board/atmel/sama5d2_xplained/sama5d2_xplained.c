@@ -14,6 +14,17 @@
 #include <asm/arch/clk.h>
 #include <asm/arch/gpio.h>
 #include <asm/arch/sama5d2.h>
+#include <sm_func.h>
+
+#ifdef CONFIG_CORETEE
+#include "sli/sli_coretee.h"
+#endif
+
+#ifdef CONFIG_COMPIDX_ADDR
+#include "sli/sli_manifest.h"
+#endif
+
+#include "sli/sli_component.h"
 
 extern void at91_pda_detect(void);
 
@@ -97,11 +108,10 @@ int misc_init_r(void)
 }
 #endif
 
+
+//===============================================
 /* SPL */
 #ifdef CONFIG_SPL_BUILD
-void spl_board_init(void)
-{
-}
 
 static void ddrc_conf(struct atmel_mpddrc_config *ddrc)
 {
@@ -139,6 +149,7 @@ static void ddrc_conf(struct atmel_mpddrc_config *ddrc)
 		      7 << ATMEL_MPDDRC_TPR2_TFAW_OFFSET);
 }
 
+
 void mem_init(void)
 {
 	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
@@ -166,6 +177,7 @@ void mem_init(void)
 	writel(0x3, &mpddrc->cal_mr4);
 	writel(64, &mpddrc->tim_cal);
 }
+
 
 void at91_pmc_init(void)
 {
@@ -196,4 +208,52 @@ void at91_pmc_init(void)
 	      AT91_PMC_MCKR_CSS_PLLA;
 	at91_mck_init(tmp);
 }
+
+
+static void jump_to_uboot(uint32_t entry)
+{
+	typedef void __noreturn (*uboot_entry_t)(void);
+	uboot_entry_t ue=(uboot_entry_t)entry;
+
+	printf("Invoking U-Boot: 0x%08x\n",entry);
+
+	ue();
+
+	// should not return from here
+	printf("U-Boot load FAILED\n");
+}
+
+
+void spl_board_init(void)
+{
+	// layout configuration
+#ifdef CONFIG_COMPIDX_ADDR
+	loadLayouts(CONFIG_COMPIDX_ADDR);
 #endif
+
+# ifdef CONFIG_CORETEE
+	printf("BSp version: 0x%08x\n", tee_version());
+
+	size_t coretee_size=0;
+	uint32_t coretee_jump=component_setup("coretee","CoreTEE",&coretee_size);
+	if (coretee_jump && coretee_size)
+		coretee(coretee_jump,coretee_size);
+	
+	printf("CoreTEE version: 0x%08x\n", tee_version());
+# endif
+
+	// loadComponents
+
+	// linux kernel
+	uint32_t kernel_jump=component_setup("linux","Linux kernel",0);
+	uint32_t dtb_jump=component_setup("dtb","Linux DTB",0);
+	
+
+	// u-boot
+	uint32_t uboot_jump=component_setup("u-boot","U-Boot",0);
+	if (uboot_jump)
+		jump_to_uboot(uboot_jump);
+	
+}
+
+#endif // SPL

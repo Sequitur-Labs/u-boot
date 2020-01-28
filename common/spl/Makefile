@@ -29,4 +29,10 @@ obj-$(CONFIG_$(SPL_TPL_)DFU_SUPPORT) += spl_dfu.o
 obj-$(CONFIG_$(SPL_TPL_)SPI_LOAD) += spl_spi.o
 obj-$(CONFIG_$(SPL_TPL_)RAM_SUPPORT) += spl_ram.o
 obj-$(CONFIG_$(SPL_TPL_)USB_SDP_SUPPORT) += spl_sdp.o
+obj-y += sli/sli_io.o
+obj-y += sli/sli_manifest.o
+obj-y += sli/sli_list.o
+obj-y += sli/sli_params.o
+obj-y += sli/sli_coretee.o
+obj-y += sli/sli_component.o
 endif

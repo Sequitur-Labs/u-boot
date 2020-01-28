@@ -273,11 +273,16 @@ config HD96
 
 
 config CORETEE_CRYPTO
-        bool "Enable CoreTEE crypto via SMC"
+  bool "Enable CoreTEE crypto via SMC"
 	default n
 	depends on CORETEE
 	help
 	  Enable CoreTEE crypto via SMC.
+
+
+config COMPIDX_ADDR
+	hex "NVM address of the Component Index (compidx.sli)"
+
 
 
 source "board/atmel/at91rm9200ek/Kconfig"

@@ -4,3 +4,4 @@
 #		     Wenyou Yang <wenyou.yang@atmel.com>
 
 obj-y += sama5d2_xplained.o
+obj-y += sli_io_impl.o
