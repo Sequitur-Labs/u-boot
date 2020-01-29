@@ -98,6 +98,8 @@ int decryptComponent(void* src,void* dst)
 		}
 
 	}
+	else
+		res=SLIENC_ERROR;
 
 	return res;
 }
