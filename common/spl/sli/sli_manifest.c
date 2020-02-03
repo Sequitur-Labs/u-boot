@@ -8,12 +8,7 @@
 #include "sli/sli_manifest.h"
 
 
-
-#define PLEX_NUM 2
-
 static slip_t* _component_slip=0;
-static slip_t* _layout[PLEX_NUM]={0,0};
-
 
 //-----------------------------------------------
 // static
@@ -28,44 +23,6 @@ static void printBuffer(uint8_t* buffer,size_t size)
 			printf("\n");
 	}
 	printf("\n");
-}
-
-
-static void loadPlex(int plexindex,const char* plexname)
-{
-	//printf("Loading: %s\n",plexname);
-	slip_key_t* plexkey=sli_findParam(_component_slip,"layout",plexname);
-	if (plexkey)
-	{
-		uint32_t plexaddr=sli_value_uint32_t(plexkey);
-		if (plexaddr)
-		{
-			void* rawplex=getComponent(plexaddr);
-
-			if (rawplex)
-			{
-				int decres=decryptComponent(rawplex,rawplex);
-				if (!decres && rawplex)
-				{
-					_layout[plexindex]=sli_loadSlip(rawplex);
-					if (_layout[plexindex])
-						printf("Plex %d layout loaded\n",plexindex);
-					else
-						printf("Could not load Plex %d layout\n",plexindex);
-				}
-				else
-					printf("Could not decrypt plex manifest: %s\n",plexname);
-
-				free(rawplex);
-			}
-			else
-				printf("Could not load param buffer: %s\n",plexname);
-		}
-		else
-			printf("Could not find plex address: %s\n",plexname);
-	}
-	else
-		printf("Could not find layout entry: %s\n",plexname);
 }
 
 
@@ -91,8 +48,6 @@ int loadLayouts(uint32_t addr)
 			if (_component_slip)
 			{
 				printf("Component layout loaded\n");
-				loadPlex(0,"plex_a");
-				loadPlex(1,"plex_b");
 			}
 			else
 				printf("Could not load Component layout\n");
@@ -127,17 +82,6 @@ int loadLayouts(uint32_t addr)
 	return res;
 }
 
-
-slip_t* getPlexLayout(int index)
-{
-	slip_t* res=0;
-	if (index>=0 && index<PLEX_NUM)
-		res=_layout[index];
-	return res;
-}
-
-
-
 int loadManifests()
 {
 	// load manifests
@@ -145,6 +89,10 @@ int loadManifests()
 
 
 	return res;
+}
+
+slip_t *getComponentManifest( void ){
+	return _component_slip;
 }
 
 

@@ -29,6 +29,7 @@ written consent of Sequitur Labs Inc. is forbidden.
 #define TYPE_STRING  9
 #define TYPE_BINARY  10
 
+#define SLI_PARAM_NAME_SIZE 32
 
 typedef struct slip_header
 {

@@ -104,16 +104,27 @@ int decryptComponent(void* src,void* dst)
 
 
 // returns jump address from manifest
-uint32_t component_setup(const char* layoutentry,const char* title,size_t* imagesize)
+uint32_t component_setup(const char* plexid, const char* component, const char* title,size_t* imagesize)
 {
 	uint32_t res=0;
-	slip_t* layout=getPlexLayout(0);
+	slip_t* layout=getComponentManifest();
+	char keyname[SLI_PARAM_NAME_SIZE];
+
+#define SET_KEY_NAME(key) \
+	memset(keyname, 0, SLI_PARAM_NAME_SIZE); \
+	memcpy(keyname, component, strlen(component)); \
+	memcpy(keyname+strlen(component), key, strlen(key));
+
 
 	if (layout)
 	{
-		uint32_t addr=sli_entry_uint32_t(layout,layoutentry,"src");
-		uint32_t dest=sli_entry_uint32_t(layout,layoutentry,"dst");
-		uint32_t ramaddr=sli_entry_uint32_t(layout,layoutentry,"jump");
+		SET_KEY_NAME("_src");
+		printf("Loading id: %s from component\n", keyname);
+		uint32_t addr=sli_entry_uint32_t(layout,plexid,keyname);
+		SET_KEY_NAME("_dst");
+		uint32_t dest=sli_entry_uint32_t(layout,plexid,keyname);
+		SET_KEY_NAME("_jump");
+		uint32_t ramaddr=sli_entry_uint32_t(layout,plexid,keyname);
 
 		if (addr && ramaddr && dest)
 		{

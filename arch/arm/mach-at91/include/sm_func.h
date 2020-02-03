@@ -15,4 +15,10 @@ u32 tee_load(unsigned int tee_destaddr, /* where to place TEE in DDR: destinatio
 
 u32 sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect);
 
+
+#define GET_BLC 0
+#define SET_BLC_MAX 1
+#define DECREMENT_BLC 2
+u32 blc_op(unsigned int op, unsigned int *value);
+
 # endif

@@ -9,8 +9,10 @@
 #define SLIENC_BOOTSERVICES_AES     1
 #define SLIENC_CORETEE_BLOB         2
 
-
 #define SLIENC_ERROR 1
+
+#define PLEX_ID_A "plex_a"
+#define PLEX_ID_B "plex_b"
 
 typedef struct sli_compsize
 {
@@ -33,6 +35,6 @@ size_t loadComponentBuffer(uint32_t addr,void* buffer);
 void* getComponent(uint32_t addr);
 int decryptComponent(void* src,void* dst);
 
-uint32_t component_setup(const char* layoutentry,const char* title,size_t* imagesize);
+uint32_t component_setup(const char* plexid, const char* component, const char* title,size_t* imagesize);
 
 #endif

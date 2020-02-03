@@ -17,13 +17,14 @@
 #include <sm_func.h>
 
 #ifdef CONFIG_CORETEE
+#include "sli/sli_bootstates.h"
 #include "sli/sli_coretee.h"
 #endif
 
 #ifdef CONFIG_COMPIDX_ADDR
 #include "sli/sli_manifest.h"
 #endif
-
+#include "sli/sli_io.h"
 #include "sli/sli_component.h"
 
 extern void at91_pda_detect(void);
@@ -224,18 +225,47 @@ static void jump_to_uboot(uint32_t entry)
 }
 
 
+static int _device=SLIDEV_DEFAULT;
+static int loadBootStateValue( void ){
+	slip_t* layout=getComponentManifest();
+	uint32_t bsv=0;
+	if(!layout){
+		printf("Component layout slip not found\n");
+		return -1;
+	}
+	uint32_t addr=sli_entry_uint32_t(layout,"p13n","bsv");
+	printf("Boot state values at addr: 0x%08x\n", addr);
+
+	int iores=sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
+	printf("iores: %d    bsv: 0x%02x\n", iores, (bsv&0xFF));
+}
+
+
 void spl_board_init(void)
 {
+#ifndef CONFIG_CORETEE_WATCHDOG
+	/* disable watchdog */
+	printf("WATCHDOG IS NOT ENABLED\n");
+	at91_disable_wdt();
+#endif
+
+	//Call into the boot logic
+	run_boot_start();
+
+	uint32_t res=0;
+
 	// layout configuration
 #ifdef CONFIG_COMPIDX_ADDR
-	loadLayouts(CONFIG_COMPIDX_ADDR);
+	res = loadLayouts(CONFIG_COMPIDX_ADDR);
+
+	res = loadBootStateValue( );
 #endif
 
 # ifdef CONFIG_CORETEE
 	printf("BSp version: 0x%08x\n", tee_version());
 
 	size_t coretee_size=0;
-	uint32_t coretee_jump=component_setup("coretee","CoreTEE",&coretee_size);
+	uint32_t coretee_jump=component_setup(PLEX_ID_A, "coretee","CoreTEE",&coretee_size);
 	if (coretee_jump && coretee_size)
 		coretee(coretee_jump,coretee_size);
 	
@@ -245,12 +275,12 @@ void spl_board_init(void)
 	// loadComponents
 
 	// linux kernel
-	uint32_t kernel_jump=component_setup("linux","Linux kernel",0);
-	uint32_t dtb_jump=component_setup("dtb","Linux DTB",0);
+	//uint32_t kernel_jump=component_setup("linux","Linux kernel",0);
+	//uint32_t dtb_jump=component_setup("dtb","Linux DTB",0);
 	
 
 	// u-boot
-	uint32_t uboot_jump=component_setup("u-boot","U-Boot",0);
+	uint32_t uboot_jump=component_setup(PLEX_ID_A,"uboot","U-Boot",0);
 	if (uboot_jump)
 		jump_to_uboot(uboot_jump);
 	

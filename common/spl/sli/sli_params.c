@@ -15,7 +15,6 @@ written consent of Sequitur Labs Inc. is forbidden.
 #include "sli/sli_list.h"
 #include "sli/sli_params.h"
 
-#define NAME_SIZE 32
 #define ALIGNMENT_BYTES 8
 
 
@@ -56,7 +55,7 @@ static int sizeproc(entry_t* e,void* data)
 	size_t* accumulator=(size_t*)data;
 	slip_key_t* key=(slip_key_t*)e->data;
 
-	*accumulator+=NAME_SIZE; // name
+	*accumulator+=SLI_PARAM_NAME_SIZE; // name
 	*accumulator+=sizeof(uint32_t); // type
 	*accumulator+=sizeof(uint32_t); // size
 
@@ -74,9 +73,9 @@ static int writeproc(entry_t* e,void* data)
 	struct writedata* transfer=(struct writedata*)data;
 	slip_key_t* key=(slip_key_t*)e->data;
 
-	memset(transfer->ptr,0,NAME_SIZE);
+	memset(transfer->ptr,0,SLI_PARAM_NAME_SIZE);
 	strncpy((char*)transfer->ptr,key->key,strlen(key->key));
-	transfer->ptr+=NAME_SIZE;
+	transfer->ptr+=SLI_PARAM_NAME_SIZE;
 	
 	memcpy(transfer->ptr,&key->type,sizeof(uint32_t));
 	transfer->ptr+=sizeof(uint32_t);
@@ -91,7 +90,7 @@ static int writeproc(entry_t* e,void* data)
 
 	transfer->ptr+=key->size+padding;
 	transfer->numentries++;
-	transfer->totalbytes+=(NAME_SIZE+sizeof(uint32_t)+sizeof(uint32_t)+key->size+padding);
+	transfer->totalbytes+=(SLI_PARAM_NAME_SIZE+sizeof(uint32_t)+sizeof(uint32_t)+key->size+padding);
 
 	return 0;
 }
@@ -181,7 +180,7 @@ static void fillParams(slip_t* params)
 		slip_key_t* key=(slip_key_t*)MALLOC(sizeof(slip_key_t));
 		key->key=(char*)ptr;
 
-		ptr+=NAME_SIZE;
+		ptr+=SLI_PARAM_NAME_SIZE;
 		
 		key->type=*(uint32_t*)ptr;
 		ptr+=sizeof(uint32_t);
@@ -239,20 +238,20 @@ static char* createKeyName(const char* section,const char* name)
 {
 	//int namelen=strlen(section)+strlen(name)+2;
 	int clen = 0;
-	char* res=(char*)MALLOC(NAME_SIZE);
+	char* res=(char*)MALLOC(SLI_PARAM_NAME_SIZE);
 	char* ptr=res;
-	memset(res,0,NAME_SIZE);
+	memset(res,0,SLI_PARAM_NAME_SIZE);
 	clen = strlen(section);
-	if(clen > NAME_SIZE)
-		clen=NAME_SIZE;
+	if(clen > SLI_PARAM_NAME_SIZE)
+		clen=SLI_PARAM_NAME_SIZE;
 	strncpy(ptr,section,strlen(section));
 	ptr=ptr+strlen(ptr);
 
-	if(clen < NAME_SIZE){
+	if(clen < SLI_PARAM_NAME_SIZE){
 		strncpy(ptr,"_",1);
 		ptr++;
-		if(clen + 1 + strlen(name) > NAME_SIZE)
-			clen = NAME_SIZE - clen - 1;
+		if(clen + 1 + strlen(name) > SLI_PARAM_NAME_SIZE)
+			clen = SLI_PARAM_NAME_SIZE - clen - 1;
 		else
 			clen = strlen(name);
 

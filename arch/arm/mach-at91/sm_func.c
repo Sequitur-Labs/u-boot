@@ -7,6 +7,7 @@ typedef unsigned int u32;
 
 # define TEE_LOAD           (M_FASTCALL | 6)
 # define SLI_DECRYPT        (M_FASTCALL | 7)
+# define BLC_OP 			(M_FASTCALL | 8) /*Operations on Boot Loop Counter*/
 
 # define FW_VERSION 0x8300010c
 # define BSP_FINAL  0x8300010d
@@ -68,6 +69,14 @@ uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t k
 																	keyselect,
 																	0,0,0);
 	return res;
+}
+
+uint32_t blc_op(uint32_t op, uint32_t *value){
+	uint32_t tmp=*value;
+	struct arm_smccc_res res;
+	arm_smccc_smc(BLC_OP, op, tmp, 0, 0, 0, 0, 0, &res);
+	*value = res.a2;
+	return res.a0;
 }
 
 #endif

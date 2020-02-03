@@ -35,4 +35,8 @@ obj-y += sli/sli_list.o
 obj-y += sli/sli_params.o
 obj-y += sli/sli_coretee.o
 obj-y += sli/sli_component.o
+obj-y += sli/sli_bootstates.o
+obj-y += sli/sli_update.o
+obj-y += sli/asn1/asn1parse.o
+obj-y += sli/asn1/asn1utils.o
 endif

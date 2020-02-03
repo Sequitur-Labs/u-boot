@@ -8,7 +8,7 @@
 int loadLayouts(uint32_t addr);
 int loadManifests(void);
 
-slip_t* getPlexLayout(int index);
+slip_t* getComponentManifest( void );
 
 
 #endif
