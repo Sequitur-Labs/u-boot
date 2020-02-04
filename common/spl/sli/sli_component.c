@@ -68,7 +68,7 @@ int decryptComponent(void* src,void* dst)
 {
 	int res=0;
 	sli_compsize_t* compsize=(sli_compsize_t*)src;
-
+	// printf("in decryptComponent  0x%08x:0x%08x  0x%08x\n",compsize,compsize->magic,SLICOMP_MAGIC);
 	if (compsize->magic==SLICOMP_MAGIC)
 	{
 		sli_compheader_t* header=(sli_compheader_t*)((uint8_t*)src+sizeof(sli_compsize_t));
@@ -83,7 +83,12 @@ int decryptComponent(void* src,void* dst)
 		switch (header->encryption)
 		{
 		case SLIENC_NONE:
+#ifdef CONFIG_SLI_ALLOW_PLAIN
 			memmove(dst,payloadstart,compsize->payloadsize);
+#else
+			printf("PLAIN components not allowed\n");
+			res=SLIENC_ERROR;
+#endif
 			break;
 		case SLIENC_BOOTSERVICES_AES:
 		case SLIENC_CORETEE_BLOB:
@@ -100,7 +105,10 @@ int decryptComponent(void* src,void* dst)
 
 	}
 	else
+	{
+		printf("NO MAGIC  0x%08x:0x%08x  0x%08x\n",(unsigned int)compsize,compsize->magic,SLICOMP_MAGIC);
 		res=SLIENC_ERROR;
+	}
 
 	return res;
 }

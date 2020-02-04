@@ -13,6 +13,12 @@ typedef unsigned int u32;
 # define BLC_OP 				(M_FASTCALL | 15) /*Operations on Boot Loop Counter*/
 # define HANDLE_CERTS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
 
+# define M_FAST_PROV        (M_FASTCALL | 0x04000000)
+# define SLI_GETPROVSTAGE   (M_FAST_PROV | 1)
+# define SLI_SETPROVSTAGE   (M_FAST_PROV | 2)
+# define SLI_RENEW_BS       (M_FAST_PROV | 3)
+# define SLI_RENEW_COMP     (M_FAST_PROV | 4)
+
 # define FW_VERSION 0x8300010c
 # define BSP_FINAL  0x8300010d
 
@@ -75,6 +81,7 @@ uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t k
 	return res;
 }
 
+
 uint32_t blc_op(uint32_t op, uint32_t *value){
 	uint32_t tmp=*value;
 	struct arm_smccc_res res;
@@ -89,6 +96,47 @@ uint32_t handle_certs( uint32_t cert_addr ){
 	printf("Calling handle cert at addr: 0x%08x\n", cert_addr);
 	arm_smccc_smc(HANDLE_CERTS_OP, CERT_SLIP_ID, cert_addr, 0, 0, 0, 0, 0, &res);
 	return res.a0;
+}
+
+
+uint32_t sli_get_provstage(void)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_GETPROVSTAGE,
+																	0,0,0,0,0,0,0);
+
+	return res;
+}
+
+uint32_t sli_set_provstage(uint32_t stage)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_SETPROVSTAGE,
+																	stage
+																	,0,0,0,0,0,0);
+	return res;
+}
+
+uint32_t sli_renew_bootservices(uint32_t addr,uint32_t len,uint32_t stage)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_RENEW_BS,
+																	addr,
+																	len,
+																	stage,
+																	0,0,0,0);
+	return res;
+}
+
+
+uint32_t sli_renew_component(uint32_t addr,uint32_t len)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_RENEW_COMP,
+																	addr,
+																	len,
+																	0,0,0,0,0);
+	return res;
 }
 
 #endif

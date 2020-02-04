@@ -30,6 +30,7 @@ obj-$(CONFIG_$(SPL_TPL_)SPI_LOAD) += spl_spi.o
 obj-$(CONFIG_$(SPL_TPL_)RAM_SUPPORT) += spl_ram.o
 obj-$(CONFIG_$(SPL_TPL_)USB_SDP_SUPPORT) += spl_sdp.o
 obj-y += sli/sli_io.o
+obj-y += sli/sli_control.o
 obj-y += sli/sli_manifest.o
 obj-y += sli/sli_list.o
 obj-y += sli/sli_params.o
@@ -39,4 +40,5 @@ obj-y += sli/sli_bootstates.o
 obj-y += sli/sli_update.o
 obj-y += sli/asn1/asn1parse.o
 obj-y += sli/asn1/asn1utils.o
+obj-y += sli/sli_prov.o
 endif

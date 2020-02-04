@@ -284,6 +284,9 @@ config COMPIDX_ADDR
 	hex "NVM address of the Component Index (compidx.sli)"
 
 
+config SLI_ALLOW_PLAIN
+	bool "Allow un-encrypted components in load"
+	default n
 
 source "board/atmel/at91rm9200ek/Kconfig"
 source "board/atmel/at91sam9260ek/Kconfig"

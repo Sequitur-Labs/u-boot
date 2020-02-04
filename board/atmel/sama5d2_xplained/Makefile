@@ -5,3 +5,4 @@
 
 obj-y += sama5d2_xplained.o
 obj-y += sli_io_impl.o
+obj-y += sli_control_impl.o

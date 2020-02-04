@@ -16,6 +16,9 @@
 #include <asm/arch/sama5d2.h>
 #include <sm_func.h>
 
+
+#include "sli/sli_prov.h"
+
 #ifdef CONFIG_CORETEE
 #include "sli/sli_bootstates.h"
 #include "sli/sli_coretee.h"
@@ -219,9 +222,47 @@ void spl_board_init(void)
 	at91_disable_wdt();
 #endif
 
+
 	//Call into the boot logic
 	run_boot_start();
 #endif
+
+	uint32_t stage=getProvisioningStage();
+
+	if (stage)
+	{
+		// Provisioning path
+		printf("Detected Provisioning Stage: %d\n",stage);
+		do_provisioning(stage);
+	}
+	else
+	{
+		// Production path
+
+# ifdef CONFIG_CORETEE
+		printf("BSp version: 0x%08x\n", tee_version());
+
+		size_t coretee_size=0;
+		uint32_t coretee_jump=component_setup("coretee","CoreTEE",&coretee_size);
+		if (coretee_jump && coretee_size)
+			coretee(coretee_jump,coretee_size);
+	
+		printf("CoreTEE version: 0x%08x\n", tee_version());
+# endif
+
+		// loadComponents
+
+		// linux kernel
+		uint32_t kernel_jump=component_setup("linux","Linux kernel",0);
+		uint32_t dtb_jump=component_setup("dtb","Linux DTB",0);
+	
+
+		// u-boot
+		uint32_t uboot_jump=component_setup("u-boot","U-Boot",0);
+		if (uboot_jump)
+			jump_to_uboot(uboot_jump);
+	}
+
 }
 
 #endif // SPL
