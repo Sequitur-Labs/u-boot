@@ -21,6 +21,7 @@ written consent of Sequitur Labs Inc. is forbidden.
 #include <sli/sli_manifest.h>
 #include <sli/sli_component.h>
 #include <sli/sli_bootstates.h>
+#include <sli/sli_control.h>
 
 #define SLI_RUN_UPDATE
 #ifdef SLI_RUN_UPDATE
@@ -315,64 +316,29 @@ static void clear_update_zmk( void ){
 
 #endif
 
-
-
-uintptr_t handle_update_blob(uintptr_t updateoffset, uint32_t size, int reblob){
+uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int reblob){
 	uintptr_t componentaddr = DDR_UPDATE_COMPONENT_ADDR;
-
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
 	
-	uintptr_t deblobaddr = componentaddr+((size+10) * SLI_MMC_BLOCK_SIZE); //Move it well past the component.
-	int bres;
-	blobheader_t* header=NULL;
-	uint8_t *rnd=malloc_cache_aligned(32);
-	memset(rnd,0,32);
-
-	//Reset alignment. Alignment within the update blob is not guaranteed.
-	printf("Copying: 0x%08lx to 0x%08lx   size: %x\n", updateoffset, componentaddr, size);
-	memset((void*)componentaddr, 0, size*SLI_MMC_BLOCK_SIZE);
-	memset((void*)deblobaddr, 0, size*SLI_MMC_BLOCK_SIZE);
-	memcpy((void*)componentaddr, (void*)updateoffset, size*SLI_MMC_BLOCK_SIZE);
-
-	printf("Decapsulate Gold Update Blob\n");
-	select_zmk();
-	bres=blob_decap((u8*)rnd,(u8*)componentaddr,(u8*)deblobaddr,(size-1)*SLI_MMC_BLOCK_SIZE);
-	//printf("blob decap res: %d\n", bres);
-	if(bres!=0){
-		caam_jr_strstatus(bres);
-		printf("Failed to decapsulate component\n");
-		return (uintptr_t)0;
-	}
-
-	//Now reblob
-	if(reblob){
-		printf("Encrypting component: ");
-		select_otpmk();
-
-		header = (blobheader_t*)componentaddr;
-		header->totalsize=size*SLI_MMC_BLOCK_SIZE;
-		header->payloadsize=header->totalsize-SLI_MMC_BLOCK_SIZE;
-		uint8_t* actualdest=(uint8_t*)(componentaddr+sizeof(blobheader_t));
-		uint8_t* aligned=(uint8_t*)malloc_cache_aligned(header->totalsize);
-		memset(aligned,0,header->totalsize);
-
-		bres=blob_encap((u8*)rnd,(u8*)deblobaddr,(u8*)aligned, header->payloadsize);
-		printf("%s (%d)\n",(bres==0) ? "SUCCESS" : "FAILED",bres);
-
-		memcpy(actualdest,aligned,header->totalsize);
-		memset((void*)deblobaddr, 0, size*SLI_MMC_BLOCK_SIZE);
-		free(aligned);
+	sli_compsize_t *compsize = (sli_compsize_t*)updateoffset;
+	sli_compheader_t *compheader = (sli_compheader_t*)(updateoffset + sizeof(sli_compsize_t));
+	if(compheader->encryption == SLIENC_NONE) {
+		// no blobs - just copy updateoffset to componentaddr
+		printf("Component is not blobbed. Copying [%d bytes] from: 0x%08lx   to 0x%08lx\n", size, updateoffset, componentaddr);
+		memcpy((void*)componentaddr,(void*)updateoffset, size);
+	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES) {
+		if(reblob) {
+			//Decrypt and re-encrypt
+			sli_renew_component(updateoffset, size);
+			memcpy((void*)componentaddr,(void*)updateoffset, size);
+		} else {
+			//Just decrypt
+			sli_decrypt(updateoffset, componentaddr, size, compheader->keyselect);
+		}
 	} else {
-		memcpy((void*)componentaddr, (void*)deblobaddr, (size-1)*SLI_MMC_BLOCK_SIZE);
+		//Not implemented...
+		printf("[%s] - Encryption type not implemented...\n", __func__);
 	}
 
-#else
-	// no blobs - just copy updateoffset to componentaddr
-	printf("Component is not blobbed. Copying [%d bytes] from: 0x%08lx   to 0x%08lx\n", size, updateoffset, componentaddr);
-	memcpy((void*)componentaddr,(void*)updateoffset, size);
-
-#endif
-	
 	return componentaddr;
 }
 
@@ -508,7 +474,7 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	//outputData((uint8_t*)compaddr, 32);
 
 	//Deblob and reblob the component.
-	ddraddr = handle_update_blob(compaddr, size, !needs_reset);
+	ddraddr = handle_update_encryption(compaddr, size, !needs_reset);
 	if(ddraddr == 0){
 		printf("Failed blob operation in update.");
 		return -1;
@@ -519,7 +485,7 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 		sli_nvm_write(_device, SLI_SPL_UPDATE_ADDR, size, (uint8_t*)ddraddr);
 		set_updated_spl();
 		printf("SPL is updated. Resetting... This may take a few seconds.\n");
-		do_reset(NULL, 0, 0, NULL);
+		sli_reset_board();
 		while(1){ udelay(1000); }
 	} else {
 		mmcdest = sli_entry_uint32_t(layout, (plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR, key);
