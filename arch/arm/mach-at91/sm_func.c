@@ -83,9 +83,11 @@ uint32_t blc_op(uint32_t op, uint32_t *value){
 	return res.a0;
 }
 
+#define CERT_SLIP_ID 1
 uint32_t handle_certs( uint32_t cert_addr ){
 	struct arm_smccc_res res;
-	arm_smccc_smc(HANDLE_CERTS_OP, cert_addr, 0, 0, 0, 0, 0, 0, &res);
+	printf("Calling handle cert at addr: 0x%08x\n", cert_addr);
+	arm_smccc_smc(HANDLE_CERTS_OP, CERT_SLIP_ID, cert_addr, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 

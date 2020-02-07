@@ -116,8 +116,12 @@ void load_certs( void ){
 		return;
 	}
 	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
-	uint32_t cert_ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" );
+	uint32_t cert_ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
+	printf("Certs at: 0x%08x, copying to 0x%08x\n", cert_nvm, cert_ddr);
 	loadComponentBuffer( cert_nvm, (void*)cert_ddr );
+
+	outputData((void*)cert_ddr, 32);
+	printf("Calling into CoreTEE\n");
 
 	handle_certs( cert_ddr );
 }
@@ -125,6 +129,7 @@ void load_certs( void ){
 void load_plex_components( uint8_t plexid ){
 	//First load coretee
 	load_coretee( plexid );
+	printf("\nDone Loading CoreTEE!!!\n\n");
 
 	//Now that CoreTEE is up, send it the certs
 	load_certs( );
