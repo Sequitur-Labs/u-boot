@@ -31,6 +31,7 @@ typedef struct sli_compheader
 
 size_t getComponentSize(uint32_t addr);
 size_t loadComponentBuffer(uint32_t addr,void* buffer);
+size_t saveComponentBuffer(uint32_t addr,void* buffer);
 
 void* getComponent(uint32_t addr);
 int decryptComponent(void* src,void* dst);

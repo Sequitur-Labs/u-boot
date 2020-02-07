@@ -19,42 +19,8 @@ int blob_decap(u8*,u8*,u8*,u32);
 
 static int _device=SLIDEV_DEFAULT;
 
-//Internal Declarations
-uint8_t str2byte(const char p, uint8_t base);
-void hex2bytes(const char *p, uint8_t *b, int count);
-char * byteToHex( uint8_t byte );
-void outputData( uint8_t *data, uint32_t len);
 
-uint8_t str2byte(const char p, uint8_t base) {
-  if ((base == 8) && (p>='0') && (p<='7'))
-    return p - '0';
-  else if ((base == 10) && (p>='0') && (p<='9'))
-    return p - '0';
-  else if (base == 16) {
-    if ((p>='0') && (p<='9'))
-      return p - '0';
-    else if ((p>='a') && (p<='f'))
-      return p - 'a' + 10;
-    else if ((p>='A') && (p<='F'))
-      return p - 'A' + 10;
-    else
-      return 0xff;
-  } else
-    return 0xff;
-}
-
-void hex2bytes(const char *p, uint8_t *b, int count) {
-  int i, i_max = (count+1)>>1;
-  for (i = 0; i < i_max; i++) {
-    if ((i == 0) && (count & 0x1)) {
-      p--;  /* Odd number of characters, so pretend there is a leading '0' */
-      b[0] = str2byte(p[1], 16);
-    } else
-      b[i] = (str2byte(p[2*i], 16)<<4) + str2byte(p[2*i+1], 16);
-  }
-}
-
-char * byteToHex( uint8_t byte ){
+static char * byteToHex( uint8_t byte ){
   static const char * hex = "0123456789ABCDEF";
   static char hexstr[2];
   memset(hexstr, 0, 2);
@@ -85,10 +51,10 @@ void outputData( uint8_t *data, uint32_t len){
   }
 }
 
-
-
 //#define RUN_UPDATE
 
+//-----------------------------------------------
+// BOOT SEQUENCE
 static void jump_to_uboot(uint32_t entry)
 {
 	typedef void __noreturn (*uboot_entry_t)(void);
@@ -102,7 +68,7 @@ static void jump_to_uboot(uint32_t entry)
 	printf("U-Boot load FAILED\n");
 }
 
-void load_coretee( uint8_t plexid ){
+static void load_coretee( uint8_t plexid ){
 	size_t coretee_size=0;
 	uint32_t coretee_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR , "coretee","CoreTEE",&coretee_size);
 	if (coretee_jump && coretee_size)
@@ -110,7 +76,7 @@ void load_coretee( uint8_t plexid ){
 	//Should return non-secure
 }
 
-void load_certs( void ){
+static void load_certs( void ){
 	slip_t *slip = getComponentManifest();
 	if(!slip){
 		return;
@@ -126,38 +92,31 @@ void load_certs( void ){
 	handle_certs( cert_ddr );
 }
 
-void load_plex_components( uint8_t plexid ){
-	//First load coretee
-	load_coretee( plexid );
-	printf("\nDone Loading CoreTEE!!!\n\n");
+
+static void load_plex_components( uint8_t plexid ){
+	char* idstr=(plexid==PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR;
+	
+	// u-boot
+	uint32_t uboot_jump=component_setup(idstr,"uboot","U-Boot",0);
+
+	// linux
+	///*
+	component_setup(idstr,"linux","Linux kernel",0);
+	component_setup(idstr,"dtb","Device Tree Binary",0);
+	//*/
+
+	// Load coretee last
+	load_coretee(plexid);
 
 	//Now that CoreTEE is up, send it the certs
-	load_certs( );
+	load_certs();
 
-#ifdef SLI_LOAD_KERNEL_VIA_SLIPS
-	//If we need to install kernel & fdt from SPL
-	fdt_setup( current_plex );
-	kernel_setup( current_plex );
-#endif
-
-	// u-boot
-	uint32_t uboot_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR,"uboot","U-Boot",0);
+	// finally jump to u-boot
 	if (uboot_jump)
 		jump_to_uboot(uboot_jump);
 }
 
-void setup_components( void ){
-	size_t coretee_size=0;
-	uint32_t coretee_jump=component_setup(PLEX_ID_A_STR, "coretee","CoreTEE",&coretee_size);
-	if (coretee_jump && coretee_size)
-		coretee(coretee_jump,coretee_size);
-
-	// u-boot
-	uint32_t uboot_jump=component_setup(PLEX_ID_A_STR,"uboot","U-Boot",0);
-	if (uboot_jump)
-		jump_to_uboot(uboot_jump);
-}
-/* CONFIG_CORETEE_FW_IN_MMC */
+//-----------------------------------------------
 
 //BLC = Boot Loop Counter
 uint8_t get_blc( void ){
@@ -375,7 +334,7 @@ uint32_t read_boot_state_values( void ){
 	}
 
 	uint32_t addr=sli_entry_uint32_t(layout,"p13n","bsv");
-	int iores=sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
+	sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
 
 	return bsv;
 }
@@ -433,196 +392,6 @@ void boot_state_start( uint32_t stateval ){
 	check_boot_state(stateval);
 }
 
-#if 0
-static uint32_t get_slip_offset( int index ){
-	char *name=NULL;
-	if(index == 0) return 0;
-
-	return index * (SLIPSIZE/SLI_MMC_BLOCK_SIZE);
-
-	/*name=getSlipName(index);
-	if (name)
-	{
-		uintptr_t address=getSubSlipAddress(name);
-		// printf("[%s] NVM:   %ld\n", __func__, address);
-		return address - CORETEE_COMPONENT_DATA_OFFSET;
-	} else
-		return -1;*/
-}
-
-
-static uint8_t AESMAGIC[8]={'a','e','s','s','l','i','p',0x00};
-
-typedef struct cryptslip
-{
-	uint8_t magic[8];
-	uint32_t size;
-} cryptslip_t;
-
-static uint8_t* getAESSlipKey(int index,size_t* size)
-{
-	uint8_t* key=0;
-
-	switch (index)
-	{
-	case SLIP_KEYRING:
-		{
-			slip_t* oemslip=get_slip(SLIP_OEM);
-			if (oemslip)
-			{
-				slip_key_t* aeskey=sli_findParam(oemslip,"crypt","ringkey");
-				if (aeskey)
-				{
-					key=(uint8_t*)malloc_cache_aligned(aeskey->size);
-					memcpy(key,aeskey->value,aeskey->size);
-					*size=aeskey->size;
-				}
-			}
-		}
-		break;
-	case SLIP_CERTS:
-		{
-			slip_t* seqslip=get_slip(SLIP_SEQ);
-			if (seqslip)
-			{
-				slip_key_t* aeskey=sli_findParam(seqslip,"crypt","certkey");
-				if (aeskey)
-				{
-					key=(uint8_t*)malloc_cache_aligned(aeskey->size);
-					memcpy(key,aeskey->value,aeskey->size);
-					*size=aeskey->size;
-				}
-			}
-		}
-		break;
-	}
-
-	return key;
-}
-
-static void manage_slip(int index,uintptr_t* address){
-	uintptr_t ddr_dest=0;
-	int ret=0;
-
-	uint32_t slip_offset=get_slip_offset(index)*SLI_MMC_BLOCK_SIZE;
-
-	printf("Slip offset for index[%d] is : %d\n", index, slip_offset);
-
-	switch (index)
-	{
-	case SLIP_CERTS:
-	case SLIP_KEYRING: // *** NOTE THAT THIS DEPENDS ON the OEM_SLIP existing
-		{
-			uint8_t* ebuffer;
-			printf("Processing AES slip [%d]\n",index);
-			
-			ddr_dest = CORETEE_TZDRAM_SLIP_BASE + slip_offset;
-
-			// load from mmc
-			ebuffer=(uint8_t*)malloc_cache_aligned(SLIPSIZE);
-			printf("Read AES blob 0x%08lx to 0x%08lx\n",*address,ddr_dest);
-			ret=sli_mmc_read(*address,SLIPSIZE,ebuffer);
-			if (!ret)
-			{
-				// check ebuffer for aesmagic header
-				cryptslip_t* cheader=(cryptslip_t*)ebuffer;
-				if (!memcmp(cheader->magic,AESMAGIC,sizeof(AESMAGIC)))
-				{
-					int cryptres=0;
-					size_t keysize=0;
-					uint8_t* key=getAESSlipKey(index,&keysize);
-					size_t buffersize=cheader->size;
-
-					if (key)
-					{
-						// this overwrites the header! Do not use cheader after this point
-						memmove(ebuffer,ebuffer+sizeof(cryptslip_t),SLIPSIZE-sizeof(cryptslip_t));
-
-						cryptres=decAesCtr(key,keysize,ebuffer,(uint8_t*)ddr_dest,buffersize);
-						printf("AES slip decryption result: %d\n",cryptres);
-
-						free(key);
-					}
-					else
-						printf("AES slip could not be decrypted (missing key)\n");
-				}
-				else
-				{
-					printf("AES slip in plain\n");
-					memcpy((void*)ddr_dest,ebuffer,SLIPSIZE);
-				}
-			}
-			else
-			{
-				printf("FAILED to read AES blob header: %d\n",ret);
-				*address=0;
-				return; // ** NOTE - thie will leak a SLIPSIZE buffer!!!
-			}
-
-			free(ebuffer);
-		}
-		break;
-	default:
-		{
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
-			uint8_t* ebuffer;
-			uint8_t* rnd=(uint8_t*)malloc_cache_aligned(32);
-			memset(rnd,0,32);
-			select_otpmk();
-			ddr_dest = CORETEE_TZDRAM_SLIP_BASE + slip_offset;
-
-			ebuffer=(uint8_t*)malloc_cache_aligned(SLIPSIZE);
-
-			printf("Read blob 0x%08lx to 0x%08lx\n", *address, ddr_dest);
-			ret=sli_mmc_read(*address,SLIPSIZE,ebuffer);
-			if (!ret)
-			{
-				blobheader_t header;
-				memcpy(&header,ebuffer,sizeof(blobheader_t));
-				//printf("totalsize: 0x%x   payloadsize: 0x%x\n",header.totalsize,header.payloadsize);
-				memmove(ebuffer,ebuffer+sizeof(blobheader_t),header.totalsize-sizeof(blobheader_t));
-
-				ret=blob_decap((u8*)rnd,(u8*)ebuffer,(u8*)ddr_dest,header.payloadsize);
-				if (ret)
-				{
-					printf("FAILED to decrypt blob for index[%d] : %d\n",index,ret);
-					*address=0;
-					return;
-				}
-			}
-			else
-			{
-				printf("FAILED to read blob header for index[%d] : %d\n",index,ret);
-				*address=0;
-				return; // ** NOTE - thie will leak a SLIPSIZE buffer!!!
-			}
-
-			free(ebuffer);
-			free(rnd);
-#else
-			//SLI - no decrypting yet, just copy.
-			ddr_dest = CORETEE_TZDRAM_SLIP_BASE + slip_offset;
-
-			/*
-				Copy the entire SLIP
-			*/
-			printf("Copying SLIP from [%ld]-0x%08lx to 0x%08lx\n", *address, *address, ddr_dest);
-			ret = sli_mmc_read(*address, SLIPSIZE, (void*)ddr_dest);
-			if(ret) {
-				printf("FAILED to load component information for index[%d] from MMC\n", index);
-				printf("Error: 0x%08x\n", ret);
-				*address = 0;
-				return;
-			}
-#endif
-		} // default
-	} // switch
-	
-	
-	*address = ddr_dest;
-}
-
-#endif
 
 /*Watchdog Section*/
 #ifdef CONFIG_CORETEE_WATCHDOG
@@ -686,7 +455,6 @@ static void setup_watchdog( void ){
 //#define BOOT_THROUGH
 void run_boot_start( void ){
 	uint32_t stateval=0;
-	uint32_t res=0;
 
 	//Set the watchdog
 	/*
@@ -699,7 +467,7 @@ void run_boot_start( void ){
 #endif
 	// layout configuration
 #ifdef CONFIG_COMPIDX_ADDR
-	res = loadLayouts(CONFIG_COMPIDX_ADDR);
+	loadLayouts(CONFIG_COMPIDX_ADDR);
 #endif
 
 #ifdef BOOT_THROUGH
@@ -717,12 +485,6 @@ void run_boot_start( void ){
 
 	//Shouldn't reach here...
 	printf("End of [%s]\n", __func__);
-	while(1){
-		static int count=0;
-		udelay(10000);
-		printf(".");
-		if(count % 30 == 0)
-			printf("\n");
-		count++;
-	};
+
+	while (1) {};
 }

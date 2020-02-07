@@ -33,8 +33,6 @@ int loadLayouts(uint32_t addr)
 	// load compidx
 	int res=0;
 
-	printf("Loading layouts...\n");
-
 	void* compbuffer=getComponent(addr);
 
 	if (compbuffer)

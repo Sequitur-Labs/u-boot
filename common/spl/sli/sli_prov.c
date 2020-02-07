@@ -6,7 +6,8 @@
 #include "sli/sli_control.h"
 
 #include "sli/sli_prov.h"
-
+#include "sli/sli_manifest.h"
+#include "sli/sli_component.h"
 
 #define PROV_STOP 0
 #define PROV_RESTART 1
@@ -27,11 +28,22 @@
 
 //-----------------------------------------------
 // private
-
+#define DIRECT_LOAD     0
+#define COMPONENT_LOAD  1
 static int mangleComponent(uint32_t addr,uint32_t len,int which, ...)
 {
 	int res=0;
-	int nvmres=sli_nvm_read(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
+	int nvmres=0;
+	int directflag=DIRECT_LOAD;
+
+	if (len)
+		nvmres=sli_nvm_read(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
+	else
+	{
+		len=loadComponentBuffer(addr,(void*)SLI_SPL_SCRATCH);
+		nvmres=(len) ? 0 : 1;
+		directflag=COMPONENT_LOAD;
+	}
 
 	va_list valist;
 	va_start(valist,which);
@@ -61,9 +73,22 @@ static int mangleComponent(uint32_t addr,uint32_t len,int which, ...)
 
 	if (!res)
 	{
-		nvmres=sli_nvm_write(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
-		if (nvmres)
-			res=MANGLE_NVMWRITE_ERR;
+		switch (directflag)
+		{
+		case COMPONENT_LOAD:
+			len=saveComponentBuffer(addr,(void*)SLI_SPL_SCRATCH);
+			if (!len)
+				res=MANGLE_NVMWRITE_ERR;
+			break;
+		case DIRECT_LOAD:
+		default:
+			nvmres=sli_nvm_write(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
+			if (nvmres)
+				res=MANGLE_NVMWRITE_ERR;
+			break;
+		}
+		
+
 	}
 	
 	return res;
@@ -86,11 +111,15 @@ static int updateAESKey(void)
 static int stage_1(void)
 {
 	int res=PROV_RESTART;
-	int bsres=setStage(2);
+	int bsres=0;
 
+
+	printf("Fusing...\n");
+
+
+	bsres=setStage(2);
 	if (!bsres)
-	{
-	}
+		printf("Restarting for Provisioning Stage 2\n");
 	else
 		printf("Stage could not be set: %d\n",bsres);
 
@@ -100,7 +129,41 @@ static int stage_1(void)
 	return res;
 }
 
+
 //diversify
+#define DCOMP_ERR_OK      0
+#define DCOMP_ERR_LAYOUT  100
+#define DCOMP_ERR_ADDR    101
+static int diversifyComponent(const char* plex,const char* component,const char* label)
+{
+	int res=DCOMP_ERR_OK;
+	slip_t* layout=getComponentManifest();
+
+	printf("Diversifying %s: ",label);
+
+	if (layout)
+	{
+		char keyname[SLI_PARAM_NAME_SIZE];
+		memset(keyname,0,SLI_PARAM_NAME_SIZE);
+		strcpy(keyname,component);
+		strcat(keyname,"_src");
+
+		uint32_t addr=sli_entry_uint32_t(layout,plex,keyname);
+
+		if (addr)
+			res=mangleComponent(addr,0,BS_COMP);
+		else
+			res=DCOMP_ERR_ADDR;
+	}
+	else
+		res=DCOMP_ERR_LAYOUT;
+
+	printf("%s (%d)\n",(res) ? "FAILED" : "SUCCESS",res);
+		
+	return res;
+}
+
+
 static int stage_2(void)
 {
 	int res=PROV_RESTART;
@@ -109,24 +172,36 @@ static int stage_2(void)
 	bsres=updateAESKey();
 	if (!bsres)
 	{
-		// diversify AES components
-
-		// load coretee
-
 		// diversify components
+
+		// component index (CONFIG_COMPIDX_ADDR)
+		printf("Diversifying Component Index: ");
+		bsres=mangleComponent(CONFIG_COMPIDX_ADDR,0,BS_COMP);
+		printf("%d\n",bsres);
+
+		diversifyComponent(PLEX_ID_A_STR,"coretee","Plex A: CoreTEE");
+		diversifyComponent(PLEX_ID_A_STR,"uboot","Plex A: U-Boot");
+		diversifyComponent(PLEX_ID_A_STR,"linux","Plex A: Linux Kernel");
+		diversifyComponent(PLEX_ID_A_STR,"dtb","Plex A: Device Tree Binary");
+
+		diversifyComponent(PLEX_ID_B_STR,"coretee","Plex B: CoreTEE");
+		diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot");
+		diversifyComponent(PLEX_ID_B_STR,"linux","Plex B: Linux Kernel");
+		diversifyComponent(PLEX_ID_B_STR,"dtb","Plex B: Device Tree Binary");
+
+		diversifyComponent("p13n","certs","Certificates");
+		
+		
 
 		// set next stage
 		bsres=setStage(0);
-
 		if (!bsres)
-		{
-		}
+			printf("Restarting for Production Boot\n");
 		else
 			printf("Stage could not be set: %d\n",bsres);
 	}
 	else
 		printf("Could not diversify AES key: %d\n",bsres);
-
 
 	if (bsres)
 		res=PROV_STOP;
@@ -149,17 +224,23 @@ uint32_t getProvisioningStage(void)
 void do_provisioning(uint32_t stage)
 {
 	int stageres=PROV_STOP;
-	printf("PROVISIONING STAGE: %d\n",stage);
+	int opres=loadLayouts(CONFIG_COMPIDX_ADDR);
 
-	switch (stage)
+	if (!opres)
 	{
-	case 1:
-		stageres=stage_1();
-		break;
-	case 2:
-		stageres=stage_2();
-		break;
+		printf("PROVISIONING STAGE: %d\n",stage);
+		switch (stage)
+		{
+		case 1:
+			stageres=stage_1();
+			break;
+		case 2:
+			stageres=stage_2();
+			break;
+		}
 	}
+	else
+		printf("PROVISIONING: Could not load layouts\n");
 
 
 	// no return

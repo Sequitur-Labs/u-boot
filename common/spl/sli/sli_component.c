@@ -38,8 +38,25 @@ size_t loadComponentBuffer(uint32_t addr,void* buffer)
 		if (iores)
 		{
 			res=0;
-			printf("Could not load raw param buffer\n");
+			printf("Could not load component buffer\n");
 		}
+	}
+	
+	return res;
+}
+
+
+size_t saveComponentBuffer(uint32_t addr,void* buffer)
+{
+	sli_compsize_t* headerbuffer=(sli_compsize_t*)buffer;
+	size_t res=sizeof(sli_compsize_t)+headerbuffer->headersize+headerbuffer->payloadsize;
+
+	int iores=sli_nvm_write(_device,addr,res,buffer);
+
+	if (iores)
+	{
+		res=0;
+		printf("Could not save component buffer\n");
 	}
 	
 	return res;
@@ -74,12 +91,11 @@ int decryptComponent(void* src,void* dst)
 		sli_compheader_t* header=(sli_compheader_t*)((uint8_t*)src+sizeof(sli_compsize_t));
 		uint8_t* payloadstart=(uint8_t*)((uint8_t*)header+compsize->headersize);
 
-		printf("Payload size: %d\n", compsize->payloadsize);
-		printf("Header size: %d\n", compsize->headersize);
-		printf("Payload start: %d\n", (int)((void*)payloadstart-(void*)src));
+		/* printf("Payload size: %d\n", compsize->payloadsize); */
+		/* printf("Header size: %d\n", compsize->headersize); */
+		/* printf("Payload start: %d\n", (int)((void*)payloadstart-(void*)src)); */
 
 		// switch on encryption type
-
 		switch (header->encryption)
 		{
 		case SLIENC_NONE:

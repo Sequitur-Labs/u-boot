@@ -18,17 +18,8 @@
 
 
 #include "sli/sli_prov.h"
-
-#ifdef CONFIG_CORETEE
 #include "sli/sli_bootstates.h"
-#include "sli/sli_coretee.h"
-#endif
 
-#ifdef CONFIG_COMPIDX_ADDR
-#include "sli/sli_manifest.h"
-#endif
-#include "sli/sli_io.h"
-#include "sli/sli_component.h"
 
 extern void at91_pda_detect(void);
 
@@ -257,14 +248,19 @@ void spl_board_init(void)
 
 
 	//Call into the boot logic
-	//run_boot_start();
 
 	uint32_t res=0;
 
-	printf("About to load Layouts\n");
+	uint32_t stage=getProvisioningStage();
+
+	if (stage!=0)
+		do_provisioning(stage);
+	else
+		run_boot_start();
 
 	// layout configuration
 #ifdef CONFIG_COMPIDX_ADDR
+	printf("About to load Layouts\n");
 	res = loadLayouts(CONFIG_COMPIDX_ADDR);
 	res = loadBootStateValue();
 #endif
