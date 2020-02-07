@@ -210,39 +210,9 @@ void at91_pmc_init(void)
 	at91_mck_init(tmp);
 }
 
-
-static void jump_to_uboot(uint32_t entry)
-{
-	typedef void __noreturn (*uboot_entry_t)(void);
-	uboot_entry_t ue=(uboot_entry_t)entry;
-
-	printf("Invoking U-Boot: 0x%08x\n",entry);
-
-	ue();
-
-	// should not return from here
-	printf("U-Boot load FAILED\n");
-}
-
-
-static int _device=SLIDEV_DEFAULT;
-static int loadBootStateValue( void ){
-	slip_t* layout=getComponentManifest();
-	uint32_t bsv=0;
-	if(!layout){
-		printf("Component layout slip not found\n");
-		return -1;
-	}
-	uint32_t addr=sli_entry_uint32_t(layout,"p13n","bsv");
-	printf("Boot state values at addr: 0x%08x\n", addr);
-
-	int iores=sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
-	printf("iores: %d    bsv: 0x%02x\n", iores, (bsv&0xFF));
-}
-
-
 void spl_board_init(void)
 {
+#ifdef CONFIG_CORETEE
 #ifndef CONFIG_CORETEE_WATCHDOG
 	/* disable watchdog */
 	printf("WATCHDOG IS NOT ENABLED\n");
@@ -251,39 +221,7 @@ void spl_board_init(void)
 
 	//Call into the boot logic
 	run_boot_start();
-
-	uint32_t res=0;
-
-	// layout configuration
-#ifdef CONFIG_COMPIDX_ADDR
-	res = loadLayouts(CONFIG_COMPIDX_ADDR);
-
-	res = loadBootStateValue( );
 #endif
-
-# ifdef CONFIG_CORETEE
-	printf("BSp version: 0x%08x\n", tee_version());
-
-	size_t coretee_size=0;
-	uint32_t coretee_jump=component_setup(PLEX_ID_A, "coretee","CoreTEE",&coretee_size);
-	if (coretee_jump && coretee_size)
-		coretee(coretee_jump,coretee_size);
-	
-	printf("CoreTEE version: 0x%08x\n", tee_version());
-# endif
-
-	// loadComponents
-
-	// linux kernel
-	//uint32_t kernel_jump=component_setup("linux","Linux kernel",0);
-	//uint32_t dtb_jump=component_setup("dtb","Linux DTB",0);
-	
-
-	// u-boot
-	uint32_t uboot_jump=component_setup(PLEX_ID_A,"uboot","U-Boot",0);
-	if (uboot_jump)
-		jump_to_uboot(uboot_jump);
-	
 }
 
 #endif // SPL

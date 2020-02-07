@@ -47,6 +47,7 @@ int loadLayouts(uint32_t addr)
 			
 			if (_component_slip)
 			{
+				_component_slip->nvm = addr;
 				printf("Component layout loaded\n");
 			}
 			else

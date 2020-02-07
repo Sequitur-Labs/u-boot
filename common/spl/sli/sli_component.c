@@ -12,15 +12,12 @@
 // set default device?
 static int _device=SLIDEV_DEFAULT;
 
-
-
 size_t getComponentSize(uint32_t addr)
 {
 	size_t res=0;
 	sli_compsize_t headerbuffer;
 
 	int iores=sli_nvm_read(_device,addr,sizeof(sli_compsize_t),&headerbuffer);
-
 	if (!iores && headerbuffer.magic==SLICOMP_MAGIC)
 		res=sizeof(sli_compsize_t)+headerbuffer.headersize+headerbuffer.payloadsize;
 	
@@ -76,6 +73,10 @@ int decryptComponent(void* src,void* dst)
 	{
 		sli_compheader_t* header=(sli_compheader_t*)((uint8_t*)src+sizeof(sli_compsize_t));
 		uint8_t* payloadstart=(uint8_t*)((uint8_t*)header+compsize->headersize);
+
+		printf("Payload size: %d\n", compsize->payloadsize);
+		printf("Header size: %d\n", compsize->headersize);
+		printf("Payload start: %d\n", (int)((void*)payloadstart-(void*)src));
 
 		// switch on encryption type
 
@@ -157,3 +158,48 @@ uint32_t component_setup(const char* plexid, const char* component, const char* 
 	return res;
 }
 
+int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryptiontype, uint32_t keyselect){
+	int res=0;
+	sli_compsize_t compsize;
+	sli_compheader_t compheader;
+	void *final=NULL;
+	void *p;
+
+	compheader.encryption = encryptiontype;
+	compheader.keyselect = keyselect;
+
+	switch(compheader.encryption){
+	case SLIENC_NONE:
+	case SLIENC_BOOTSERVICES_AES:
+	case SLIENC_CORETEE_BLOB:
+		/*Encrypt buffer*/
+		break;
+	default:
+		break;
+	}
+
+	compsize.magic=SLICOMP_MAGIC;
+	compsize.headersize=sizeof(sli_compheader_t);
+	compsize.payloadsize=size;
+
+	final = malloc(compsize.headersize+compsize.payloadsize);
+	if(!final){
+		printf("[%s] - Failed to allocation buffer to save to NVM!\n", __func__);
+		return -1;
+	}
+
+	p=final;
+	memcpy(p, &compsize, sizeof(sli_compsize_t));
+	p+=sizeof(sli_compsize_t);
+	memcpy(p, &compheader, sizeof(sli_compheader_t));
+	p+=sizeof(sli_compheader_t);
+	memcpy(p, buffer, size);
+
+	printf("Calling nvm write [0x%08x]   %d bytes\n", nvmaddr, compsize.headersize+compsize.payloadsize);
+	res = sli_nvm_write(_device, nvmaddr, (sizeof(sli_compsize_t)+compsize.headersize+compsize.payloadsize), final);
+
+	free(final);
+
+	printf("[%s] - Done\n", __func__);
+	return res;
+}

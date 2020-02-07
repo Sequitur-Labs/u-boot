@@ -21,4 +21,6 @@ u32 sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keysel
 #define DECREMENT_BLC 2
 u32 blc_op(unsigned int op, unsigned int *value);
 
+u32 handle_certs( uint32_t cert_addr );
+
 # endif

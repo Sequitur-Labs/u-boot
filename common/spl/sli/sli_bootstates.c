@@ -102,22 +102,55 @@ static void jump_to_uboot(uint32_t entry)
 	printf("U-Boot load FAILED\n");
 }
 
-void setup_components( void ){
+void load_coretee( uint8_t plexid ){
 	size_t coretee_size=0;
-	uint32_t coretee_jump=component_setup(PLEX_ID_A, "coretee","CoreTEE",&coretee_size);
+	uint32_t coretee_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR , "coretee","CoreTEE",&coretee_size);
 	if (coretee_jump && coretee_size)
 		coretee(coretee_jump,coretee_size);
+	//Should return non-secure
+}
 
-	// u-boot
-	uint32_t uboot_jump=component_setup(PLEX_ID_A,"uboot","U-Boot",0);
-	if (uboot_jump)
-		jump_to_uboot(uboot_jump);
+void load_certs( void ){
+	slip_t *slip = getComponentManifest();
+	if(!slip){
+		return;
+	}
+	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
+	uint32_t cert_ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" );
+	loadComponentBuffer( cert_nvm, (void*)cert_ddr );
+
+	handle_certs( cert_ddr );
+}
+
+void load_plex_components( uint8_t plexid ){
+	//First load coretee
+	load_coretee( plexid );
+
+	//Now that CoreTEE is up, send it the certs
+	load_certs( );
 
 #ifdef SLI_LOAD_KERNEL_VIA_SLIPS
 	//If we need to install kernel & fdt from SPL
 	fdt_setup( current_plex );
 	kernel_setup( current_plex );
 #endif
+
+	// u-boot
+	uint32_t uboot_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR,"uboot","U-Boot",0);
+	if (uboot_jump)
+		jump_to_uboot(uboot_jump);
+}
+
+void setup_components( void ){
+	size_t coretee_size=0;
+	uint32_t coretee_jump=component_setup(PLEX_ID_A_STR, "coretee","CoreTEE",&coretee_size);
+	if (coretee_jump && coretee_size)
+		coretee(coretee_jump,coretee_size);
+
+	// u-boot
+	uint32_t uboot_jump=component_setup(PLEX_ID_A_STR,"uboot","U-Boot",0);
+	if (uboot_jump)
+		jump_to_uboot(uboot_jump);
 }
 /* CONFIG_CORETEE_FW_IN_MMC */
 
@@ -203,13 +236,33 @@ void check_startup_registers(void){
 	}
 }
 
+/*
+ *
+ */
+void activate_plex( uint8_t plexid, uint32_t stateval ){
+	CLEAR_STATE(stateval, BS_ACTIVATE);
+
+	if(plexid == PLEX_A_ID) {
+		SET_STATE(stateval, BS_A_PRIMARY);
+	}
+	else {
+		CLEAR_STATE(stateval, BS_A_PRIMARY);
+	}
+
+	//Save cleared 'activate' flag back to SPI.
+	update_boot_state(stateval);
+
+	//Cycle through again.
+	set_blc_max();
+	boot_state_start( stateval );
+}
 
 /*
  *
  */
 void update_plex( uint8_t plexid, uint32_t stateval ){
 	int res=0;
-	unsigned int mdoyle_todo_unused_warning;
+	unsigned int mdoyle_todo_unused_warning_implement_manifest_change;
 
 	//int index = (plexid == PLEX_A_ID) ? SLIP_PLEX_A : SLIP_PLEX_B;
 	//uintptr_t ddr_dest;
@@ -248,35 +301,18 @@ void update_plex( uint8_t plexid, uint32_t stateval ){
 
 	//If activating then we'll save the boot state after clearing the activate flag.
 	//If not activating then we'll need to save the boot state with the cleared update flag.
-	if(!CHECK_STATE(stateval, BS_ACTIVATE)){
+	if(CHECK_STATE(stateval, BS_ACTIVATE)){
+		printf("[SLI] - Activate plex set. Activating non-primary plex\n");
+		//Activate 'other' plex
+		activate_plex(plexid, stateval);
+	} else {
 		//Save cleared 'update' flag back to SPI.
 		update_boot_state(stateval);
+
+		//Cycle through again.
+		set_blc_max();
+		boot_state_start( stateval );
 	}
-
-	//Cycle through again.
-	set_blc_max();
-	boot_state_start( stateval );
-}
-
-/*
- *
- */
-void activate_plex( uint8_t plexid, uint32_t stateval ){
-	CLEAR_STATE(stateval, BS_ACTIVATE);
-
-	if(plexid == PLEX_A_ID) {
-		SET_STATE(stateval, BS_A_PRIMARY);
-	}
-	else {
-		CLEAR_STATE(stateval, BS_A_PRIMARY);
-	}
-
-	//Save cleared 'activate' flag back to SPI.
-	update_boot_state(stateval);
-
-	//Cycle through again.
-	set_blc_max();
-	boot_state_start( stateval );
 }
 
 void invalidate_plex( uint8_t plexa, uint32_t stateval ){
@@ -353,37 +389,35 @@ void check_boot_state(uint32_t stateval){
 	//Are we bricked?
 	check_bricked(0, stateval);
 
-	//printf("[%s] - Calling get_blc\n", __func__);
 	blc = get_blc();
+	printf("[%s] - BLC: %d\n", __func__, blc);
 
 	aisprimary = CHECK_STATE(stateval, BS_A_PRIMARY);
-	/*
-	 * When checking the 'states' the actions update and activate are the most important, with
-	 * update being done before activate (if set).
-	 *
-	 * The 'bricked' state was already checked but if blc has been decremented to 0 then
-	 * we need to invalidate the current plex and test the states again.
-	 *
-	 * If all those tests pass then we can proceed with a normal boot.
-	 */
 
-	if( CHECK_STATE(stateval, BS_UPDATE) ){
-		printf("[SLI] - Update plex set. Updating non-primary plex\n");
-		//Update 'other' plex
-		update_plex(!aisprimary, stateval);
-	} else if( CHECK_STATE(stateval, BS_ACTIVATE) ){
-		printf("[SLI] - Activate plex set. Activating non-primary plex\n");
-		//Activate 'other' plex
-		activate_plex(!aisprimary, stateval);
-	} else if(blc==0){
-		//set current plex valid to false. Check boot states again.
-		printf("[SLI] - Invalidate plex: blc = %d,  a primary %d   stateval: %x\n", blc, aisprimary, stateval);
-		invalidate_plex(aisprimary, stateval);
-	} else {
-		//continue to boot current plex
-		printf("Calling setup_components\n");
-		setup_components();
-	}
+	/*
+		* When checking the 'states' the actions update and activate are the most important, with
+		* update being done before activate (if set).
+		*
+		* The 'bricked' state was already checked but if blc has been decremented to 0 then
+		* we need to invalidate the current plex and test the states again.
+		*
+		* If all those tests pass then we can proceed with a normal boot.
+	*/
+    if( CHECK_STATE(stateval, BS_UPDATE) ){
+    	printf("[SLI] - Update plex set. Updating non-primary plex\n");
+        //Update 'other' plex
+        update_plex(!aisprimary, stateval);
+    } else if( CHECK_STATE(stateval, BS_ACTIVATE) ){
+        printf("[SLI] - Activate plex set. Activating non-primary plex\n");
+        //Activate 'other' plex
+        activate_plex(!aisprimary, stateval);
+    } else if(blc==0){
+        //set current plex valid to false. Check boot states again.
+        printf("[SLI] - Invalidate plex: blc = %d,  a primary %d   stateval: %x\n", blc, aisprimary, stateval);
+        invalidate_plex(aisprimary, stateval);
+    } else {
+        load_plex_components( aisprimary );
+    }
 }
 
 void boot_state_start( uint32_t stateval ){
@@ -644,6 +678,7 @@ static void setup_watchdog( void ){
 }
 #endif
 
+//#define BOOT_THROUGH
 void run_boot_start( void ){
 	uint32_t stateval=0;
 	uint32_t res=0;
@@ -660,6 +695,10 @@ void run_boot_start( void ){
 	// layout configuration
 #ifdef CONFIG_COMPIDX_ADDR
 	res = loadLayouts(CONFIG_COMPIDX_ADDR);
+#endif
+
+#ifdef BOOT_THROUGH
+	load_plex_components( 1 ); /*1 for plex A*/
 #endif
 
 	//Check power on reset

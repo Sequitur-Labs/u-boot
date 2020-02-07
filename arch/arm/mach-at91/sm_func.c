@@ -7,7 +7,11 @@ typedef unsigned int u32;
 
 # define TEE_LOAD           (M_FASTCALL | 6)
 # define SLI_DECRYPT        (M_FASTCALL | 7)
-# define BLC_OP 			(M_FASTCALL | 8) /*Operations on Boot Loop Counter*/
+
+
+/*Need to sync up with CoreTEE OPTEE_SMC_FUNCID_*/
+# define BLC_OP 				(M_FASTCALL | 15) /*Operations on Boot Loop Counter*/
+# define HANDLE_CERTS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
 
 # define FW_VERSION 0x8300010c
 # define BSP_FINAL  0x8300010d
@@ -76,6 +80,12 @@ uint32_t blc_op(uint32_t op, uint32_t *value){
 	struct arm_smccc_res res;
 	arm_smccc_smc(BLC_OP, op, tmp, 0, 0, 0, 0, 0, &res);
 	*value = res.a2;
+	return res.a0;
+}
+
+uint32_t handle_certs( uint32_t cert_addr ){
+	struct arm_smccc_res res;
+	arm_smccc_smc(HANDLE_CERTS_OP, cert_addr, 0, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 

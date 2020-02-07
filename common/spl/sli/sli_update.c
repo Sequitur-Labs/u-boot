@@ -19,6 +19,7 @@ written consent of Sequitur Labs Inc. is forbidden.
 #include <sli/sli_io.h>
 #include <sli/sli_params.h>
 #include <sli/sli_manifest.h>
+#include <sli/sli_component.h>
 #include <sli/sli_bootstates.h>
 
 #define SLI_RUN_UPDATE
@@ -30,7 +31,9 @@ written consent of Sequitur Labs Inc. is forbidden.
 
 #include <sli/sli_update.h>
 
-#define SLI_SPL_UPDATE_ADDR 66 /*Address in MMC*/
+#define SLI_SPL_UPDATE_ADDR 0x00 /*Address in NVM*/
+#define SLI_SPL_COMPONENT_STR "spl"
+
 #define DDR_UPDATE_PAYLOAD_ADDR 0x3E000000
 #define DDR_UPDATE_CONTENT_ADDR 0x3EB00000
 #define DDR_UPDATE_COMPONENT_ADDR 0x3F800000
@@ -375,81 +378,15 @@ uintptr_t handle_update_blob(uintptr_t updateoffset, uint32_t size, int reblob){
 
 int encap_and_and_save_manifest( slip_t *slip ){
 	int bres=0;
-
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
-	size_t sizeval;
-	int slipsize=0;
-	blobheader_t *header=NULL;
-	uint8_t *actualdest=NULL, *aligned=NULL, *parambuffer=NULL;
-	uint8_t *rnd=malloc_cache_aligned(32);
-	uintptr_t bsrc, bdst;
-	memset(rnd,0,32);
-
-	if(!slip)
-		return -1;
-
-	//Convert SLIP to binary blob
-	parambuffer = sli_binaryParams(slip, &slipsize);
-	//printf("Slip is size: %d\n", slipsize);
-	slipsize+=sizeof(blobheader_t);
-
-	//Align to MMC block size
-	sizeval = ((slipsize/SLI_MMC_BLOCK_SIZE)+1)*SLI_MMC_BLOCK_SIZE;
-	sizeval += SLI_MMC_BLOCK_SIZE; //Add padding
-
-	bsrc = DDR_UPDATE_COMPONENT_ADDR;
-	bdst = DDR_UPDATE_COMPONENT_ADDR + (sizeval+4096); /*Add padding*/
-	memset(P(bsrc), 0, sizeval);
-	memset(P(bdst), 0, sizeval);
-	header=(blobheader_t*)bdst;
-
-	//Make sure to align it, best just copy to known alignment
-	memcpy(P(bsrc), parambuffer, slipsize);
-	free(parambuffer);
-
-	header->totalsize=sizeval;
-	header->payloadsize=sizeval-SLI_MMC_BLOCK_SIZE;
-
-	actualdest=(uint8_t*)(bdst+sizeof(blobheader_t));
-	aligned=(uint8_t*)malloc_cache_aligned(sizeval);
-	memset(aligned,0,sizeval);
-
-	select_otpmk();
-	bres=blob_encap((u8*)rnd,(u8*)bsrc,(u8*)aligned,sizeval-SLI_MMC_BLOCK_SIZE);
-	printf("%s (%d)\n",(bres==0) ? "SUCCESS" : "FAILED",bres);
-
-	memcpy(actualdest,aligned,sizeval);
-	free(aligned);
-
-	//Save back to flash
-	printf("Writing to the SF...");
-	bres = sli_nvm_write(_device, slip->nvm, sizeval, P(bdst));
-	if (!bres)
-		printf("%d bytes written\n",sizeval);
-	else
-		printf("FAILED\n");
-
-	free(rnd);
-
-#else
-	uint8_t* parambuffer;
-	// size_t sizeval;
+	uint8_t* parambuffer=NULL;
 	int slipsize=0;
 
-	if (slip)
-	{
+	if (slip) {
 		parambuffer=sli_binaryParams(slip,&slipsize);
-
-		bres=sli_nvm_write(_device, slip->nvm, slipsize, parambuffer);
-		if (!bres)
-			printf("%d bytes written\n", slipsize);
-		else
-			printf("FAILED\n");
-
-	}
-	else
+		bres = save_component( parambuffer, slipsize, slip->nvm, 0, 0);
+	} else {
 		bres=-1;
-#endif // CONFIG_SPL_SLIENCRYPTEDBOOT
+	}
 	
 	return bres;
 }
@@ -462,11 +399,16 @@ static char* component_names[NUM_COMPONENT_NAMES]={
 		"fdt"
 };
 
-#define NUM_KEY_NAMES 4
+#define NUM_KEY_NAMES 3
+static char *component_key_names[NUM_KEY_NAMES]={
+		"_dst",
+		"_jump",
+		"_version"
+};
+
 static char *key_names[NUM_KEY_NAMES]={
 		"dest",
 		"jump",
-		"size",
 		"version"
 };
 
@@ -495,42 +437,57 @@ int is_key_different( slip_key_t *oldkey, slip_key_t *newkey){
 	return 0; /*Made it where we can't compare. Assume the same, skip...*/
 }
 
-void update_keys( slip_t *plex, slip_t *update, const char* component ){
+void update_keys( slip_t *layout, uint8_t plexid, slip_t *update, const char* component ){
 	int i=0;
+	char keystr[SLI_PARAM_NAME_SIZE];
+	char plexstr[16];
 	slip_key_t *oldkey=NULL;
 	slip_key_t *newkey=NULL;
-	for(i=0; i<NUM_KEY_NAMES; i++){
-		oldkey = sli_findParam(plex, component, key_names[i]);
-		newkey = sli_findParam(update, component, key_names[i]);
 
+	memset(plexstr, 0, 16);
+	memcpy(plexstr, ((plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR), strlen(PLEX_ID_A_STR));
+
+
+	for(i=0; i<NUM_KEY_NAMES; i++){
+		memset(keystr, 0, SLI_PARAM_NAME_SIZE);
+		memcpy(keystr, component, strlen(component));
+		memcpy(keystr+strlen(component), component_key_names[i], strlen(component_key_names[i]));
+		oldkey = sli_findParam(layout, plexstr, keystr);
+		newkey = sli_findParam(update, component, key_names[i]);
 
 		if( is_key_different( oldkey, newkey ) ){
 			//Need to replace key with allocated value or else the key just points to 'raw' in the SLIP
 			//printf("Updating[%s] value: %s\n", component, key_names[i]);
-			slip_key_t *key = sli_newParam(component, key_names[i], newkey->type);
+			slip_key_t *key = sli_newParam(plexstr, keystr, newkey->type);
 			key->value = MALLOC(newkey->size);
 			key->size = newkey->size;
 			memcpy(key->value, newkey->value, newkey->size);
 
 			//Delete the old key memory and it's place in the SLIP
-			sli_deleteParamKey(plex, oldkey);
+			sli_deleteParamKey(layout, oldkey);
 
 			//This will update the value in the SLIP and will be saved back to NVM.
-			sli_addParam(plex, key);
+			sli_addParam(layout, key);
 		}
 	}
 }
 
 
-int update_component( slip_t *plex, slip_t *update, uint32_t uaddr, const char* component ){
-	int res=0, is_spl=0;
+int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t uaddr, const char* component ){
+	int res=0, needs_reset=0;
 	uint32_t offset;
 	uint32_t size=0;
 	uintptr_t mmcdest=0;
 	uintptr_t ddraddr=0;
 	uintptr_t compaddr=uaddr;
 
-	is_spl = (strcmp(component, "spl")==0);
+	//Get destination in MMC from plex manifest
+	char key[SLI_PARAM_NAME_SIZE];
+	memset(key, 0, SLI_PARAM_NAME_SIZE);
+	memcpy(key, component, strlen(component));
+	memcpy(key+strlen(component), "_src", 4);
+
+	needs_reset = (strcmp(component, "spl_tramp")==0);
 
 	//Size must be number of MMC blocks
 	size = sli_entry_uint32_t(update, component, "size");
@@ -551,43 +508,37 @@ int update_component( slip_t *plex, slip_t *update, uint32_t uaddr, const char* 
 	//outputData((uint8_t*)compaddr, 32);
 
 	//Deblob and reblob the component.
-	ddraddr = handle_update_blob(compaddr, size, !is_spl);
+	ddraddr = handle_update_blob(compaddr, size, !needs_reset);
 	if(ddraddr == 0){
 		printf("Failed blob operation in update.");
 		return -1;
 	}
 
-	if(is_spl){
-		//Just copy to MMC
-		printf("Updating SPL - Copying [%d bytes] to NVM address: 0x%08x\n", size, SLI_SPL_UPDATE_ADDR);
+	if(needs_reset){
+		printf("Updating Component - Copying [%d bytes] to NVM address: 0x%08x\n", size, SLI_SPL_UPDATE_ADDR);
 		sli_nvm_write(_device, SLI_SPL_UPDATE_ADDR, size, (uint8_t*)ddraddr);
 		set_updated_spl();
 		printf("SPL is updated. Resetting... This may take a few seconds.\n");
-		printf("MIKE!!! IMPLEMENT RESET!!\n");
-		//ct_init_sec_wdog(2000, 1000);
+		do_reset(NULL, 0, 0, NULL);
 		while(1){ udelay(1000); }
 	} else {
-		//Get destination in MMC from plex manifest
-		mmcdest = sli_entry_uint32_t(plex, component, "source");
-
-		//printf("DDR location: 0x%08lx\n", ddraddr);
-		//printf("Component \'source\' from plex is: 0x%08lx\n", mmcdest);
+		mmcdest = sli_entry_uint32_t(layout, (plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR, key);
 
 		//Copy blob back to MMC.
 		printf("Copying component to NVM from: 0x%08lx to 0x%08lx numbytes: %d\n", ddraddr, mmcdest, size);
-		res = sli_nvm_read(_device, mmcdest, size, (void*)ddraddr);
+		res = sli_nvm_write(_device, mmcdest, size, (void*)ddraddr);
 		if(res){
 			printf("FAILED TO WRITE TO NVM!!!\n");
 		}
 
 		//Update the keys
-		update_keys(plex, update, component);
+		update_keys(layout, plexid, update, component);
 	}
 
 	return res;
 }
 
-int update_components( slip_t *update, uintptr_t componentaddr, size_t length, slip_t *plex ){
+int update_components( slip_t *update, uintptr_t componentaddr, size_t length, slip_t *layout, uint8_t plexid ){
 	int res=0;
 	int i=0;
 
@@ -595,23 +546,23 @@ int update_components( slip_t *update, uintptr_t componentaddr, size_t length, s
 	printf("Update manifest found. Running update. SPL already: %d.\n", i);
 
 	//First check to see if SPL needs to be updated.
-	if( sli_findParam( update, "spl", "size") && !get_updated_spl()){
-		//This should set a 'updating SPL flag' and reset the board....
+	if( sli_findParam( update, SLI_SPL_COMPONENT_STR, "size") && !get_updated_spl()){
+		//This should set an 'updating SPL flag' and reset the board....
 		printf("Running SPL update\n");
-		update_component(plex, update, componentaddr, "spl");
+		update_component(layout, plexid, update, componentaddr, SLI_SPL_COMPONENT_STR);
 	} else {
 		clear_updated_spl();
 		printf("Continuing with non SPL components.\n");
 	}
 
 	for(i=0; i<NUM_COMPONENT_NAMES && res==0; i++){
-		res = update_component(plex, update, componentaddr, component_names[i]);
+		res = update_component(layout, plexid, update, componentaddr, component_names[i]);
 	}
 
 	//Save plex manifest back to MMC
 	if(!res){
-		printf("Saving manifest back to NVM: 0x%08lx\n", plex->nvm);
-		encap_and_and_save_manifest(plex);
+		printf("Saving manifest back to NVM: 0x%08lx\n", layout->nvm);
+		encap_and_and_save_manifest(layout);
 	} else {
 		printf("Failed to update components. Exiting Update\n");
 	}
@@ -669,7 +620,7 @@ void test_manifest( int plexid ){
 	}
 }*/
 
-int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *plex ){
+int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *layout, uint8_t plexid ){
 	int res=0;
 	dernode *parent=0;
 	dernode *algnode, *signode, *plnode;
@@ -729,7 +680,7 @@ int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *plex ){
 #endif
 
 	printf("Updating components. Manifest: 0x%08x   plnode->content: %p\n", UPDATE_MANIFEST_SIZE, plnode->content);
-	if((res = update_components( updateslip, (uintptr_t)(plnode->content)+UPDATE_MANIFEST_SIZE, plnode->length-UPDATE_MANIFEST_SIZE, plex )) != 0){
+	if((res = update_components( updateslip, (uintptr_t)(plnode->content)+UPDATE_MANIFEST_SIZE, plnode->length-UPDATE_MANIFEST_SIZE, layout, plexid )) != 0){
 		printf("Failed to update components\n");
 		goto done;
 	}
@@ -847,7 +798,7 @@ int run_update( unsigned int plexid ){
 		goto done;
 	}
 
-	if((res = verify_and_run_update( uaddr, plsize, component )) != 0){
+	if((res = verify_and_run_update( uaddr, plsize, component, plexid )) != 0){
 		printf("Failed to run update\n");
 		goto done;
 	}

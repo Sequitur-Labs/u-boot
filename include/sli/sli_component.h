@@ -11,8 +11,8 @@
 
 #define SLIENC_ERROR 1
 
-#define PLEX_ID_A "plex_a"
-#define PLEX_ID_B "plex_b"
+#define PLEX_ID_A_STR "plex_a"
+#define PLEX_ID_B_STR "plex_b"
 
 typedef struct sli_compsize
 {
@@ -36,5 +36,11 @@ void* getComponent(uint32_t addr);
 int decryptComponent(void* src,void* dst);
 
 uint32_t component_setup(const char* plexid, const char* component, const char* title,size_t* imagesize);
+
+
+/*
+ * Save component back to NVM. Needed for update mechanism.
+ */
+int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryption_type, uint32_t keyselect);
 
 #endif
