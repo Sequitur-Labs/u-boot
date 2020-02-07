@@ -72,6 +72,16 @@ static void jump_to_uboot(uint32_t entry)
 static void load_coretee( uint8_t plexid ){
 	size_t coretee_size=0;
 	uint32_t coretee_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR , "coretee","CoreTEE",&coretee_size);
+	if(coretee_jump == 0 || coretee_jump == 1) { /*Error values*/
+		printf("Load CoreTEE failed!!!\n");
+#ifdef CONFIG_CORETEE_WATCHDOG
+		printf("Waiting for watchdog to fire...\n");
+#else
+		printf("Watchdog not enabled...\n");
+#endif
+		while(1){ udelay(1000); }
+	}
+
 	if (coretee_jump && coretee_size)
 		coretee(coretee_jump,coretee_size);
 	//Should return non-secure

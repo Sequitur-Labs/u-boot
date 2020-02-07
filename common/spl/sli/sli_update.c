@@ -318,25 +318,51 @@ static void clear_update_zmk( void ){
 
 uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int reblob){
 	uintptr_t componentaddr = DDR_UPDATE_COMPONENT_ADDR;
+	uint8_t *buffer = malloc(size);
+	uint32_t res=0;
+
+	if(!buffer){
+		printf("Ran out of memory for update!\n");
+		return NULL;
+	}
+	memcpy(buffer, (void*)updateoffset, size);
 	
-	sli_compsize_t *compsize = (sli_compsize_t*)updateoffset;
-	sli_compheader_t *compheader = (sli_compheader_t*)(updateoffset + sizeof(sli_compsize_t));
+	sli_compsize_t *compsize = (sli_compsize_t*)buffer;
+	sli_compheader_t *compheader = (sli_compheader_t*)(buffer + sizeof(sli_compsize_t));
+	//printf("compsize: 0x%08x,  compheader: 0x%08x\n", compsize, compheader);
+	//printf("Size: %d    payloadsize: %d headersize: %d compsize: %d\n", size, compsize->payloadsize, compsize->headersize, sizeof(sli_compsize_t));
+
 	if(compheader->encryption == SLIENC_NONE) {
 		// no blobs - just copy updateoffset to componentaddr
 		printf("Component is not blobbed. Copying [%d bytes] from: 0x%08lx   to 0x%08lx\n", size, updateoffset, componentaddr);
-		memcpy((void*)componentaddr,(void*)updateoffset, size);
+		memcpy((void*)componentaddr,(void*)buffer, size);
 	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES) {
 		if(reblob) {
 			//Decrypt and re-encrypt
-			sli_renew_component(updateoffset, size);
-			memcpy((void*)componentaddr,(void*)updateoffset, size);
+			res = sli_renew_component(buffer, size);
+			if(res){
+				printf("Renew failed!\n");
+				res=-1;
+				goto done;
+			}
+			memcpy((void*)componentaddr,(void*)buffer, size);
 		} else {
 			//Just decrypt
-			sli_decrypt(updateoffset, componentaddr, size, compheader->keyselect);
+			res = sli_decrypt(buffer, componentaddr, size, compheader->keyselect);
+			printf("Result of decrypt: 0x%08x\n", res);
 		}
 	} else {
 		//Not implemented...
 		printf("[%s] - Encryption type not implemented...\n", __func__);
+	}
+
+done:
+	if(buffer)
+		free(buffer);
+
+	printf("[%s] - Done: 0x%08x\n", __func__, res);
+	if(res){
+		return NULL;
 	}
 
 	return componentaddr;
