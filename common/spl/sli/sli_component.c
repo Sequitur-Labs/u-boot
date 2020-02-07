@@ -130,7 +130,6 @@ uint32_t component_setup(const char* plexid, const char* component, const char* 
 	if (layout)
 	{
 		SET_KEY_NAME("_src");
-		printf("Loading id: %s from component\n", keyname);
 		uint32_t addr=sli_entry_uint32_t(layout,plexid,keyname);
 		SET_KEY_NAME("_dst");
 		uint32_t dest=sli_entry_uint32_t(layout,plexid,keyname);

@@ -11,64 +11,92 @@
 #define PROV_STOP 0
 #define PROV_RESTART 1
 
+#define BS_STAGE   1  // 1 param
+#define BS_AES     2  // 0 params
+#define BS_COMP    3  // 0 params
+#define CT_BLOB    10
+
+#define MANGLE_NVMREAD_ERR       1
+#define MANGLE_BS_ERR            2
+#define MANGLE_NVMWRITE_ERR      3
+#define MANGLE_UNKNOWN_PROC_ERR  4
+
+#define BOOT_BINARY_ADDR 0x00000000
+#define BOOT_BINARY_SIZE 0x00010000
+
+
 //-----------------------------------------------
+// private
 
-static int rewrite_bootservices(uint32_t stage)
-{
-	int res=0;
-	// load bootservices,
-	int nvmres=sli_nvm_read(SLIDEV_DEFAULT,0x00000000,64*1024,(void*)SLI_SPL_SCRATCH);
-
-	if (!nvmres)
-	{
-		uint32_t smres=sli_renew_bootservices(SLI_SPL_SCRATCH,64*1024,stage);
-		if (!smres)
-		{
-			nvmres=sli_nvm_write(SLIDEV_DEFAULT,0x00000000,64*1024,(void*)SLI_SPL_SCRATCH);
-			if (nvmres)
-				printf("Could not write bootservices\n");
-		}
-		else
-			printf("Could not renew bootservices\n");
-	}
-	else
-		printf("Could not load bootservices\n");
-
-	return res;
-}
-
-
-static int rewrite_bs_component(uint32_t addr,uint32_t len)
+static int mangleComponent(uint32_t addr,uint32_t len,int which, ...)
 {
 	int res=0;
 	int nvmres=sli_nvm_read(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
 
+	va_list valist;
+	va_start(valist,which);
+
 	if (!nvmres)
 	{
-		uint32_t smres=sli_renew_component(SLI_SPL_SCRATCH,len);
-		if (!smres)
+		switch (which)
 		{
-			nvmres=sli_nvm_write(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
-			if (nvmres)
-				printf("Could not write component\n");
+		case BS_STAGE:
+			res=sli_set_provstage(SLI_SPL_SCRATCH,len,va_arg(valist,uint32_t));
+			break;
+		case BS_AES:
+			res=sli_set_aeskey(SLI_SPL_SCRATCH,len);
+			break;
+		case BS_COMP:
+			res=sli_renew_component(SLI_SPL_SCRATCH,len);
+			break;
+		case CT_BLOB:
+		default:
+			res=MANGLE_UNKNOWN_PROC_ERR;
 		}
-		else
-			printf("Could not renew component\n");
 	}
 	else
-		printf("Could not load component\n");
+		res=MANGLE_NVMREAD_ERR;
+
+	va_end(valist);
+
+	if (!res)
+	{
+		nvmres=sli_nvm_write(SLIDEV_DEFAULT,addr,len,(void*)SLI_SPL_SCRATCH);
+		if (nvmres)
+			res=MANGLE_NVMWRITE_ERR;
+	}
 	
 	return res;
 }
 
 
+static int setStage(int stage)
+{
+	return mangleComponent(BOOT_BINARY_ADDR,BOOT_BINARY_SIZE,BS_STAGE,stage);
+}
+
+
+static int updateAESKey(void)
+{
+	return mangleComponent(BOOT_BINARY_ADDR,BOOT_BINARY_SIZE,BS_AES);
+}
 
 
 // fuses
 static int stage_1(void)
 {
 	int res=PROV_RESTART;
-	int bsres=rewrite_bootservices(2);
+	int bsres=setStage(2);
+
+	if (!bsres)
+	{
+	}
+	else
+		printf("Stage could not be set: %d\n",bsres);
+
+	if (bsres)
+		res=PROV_STOP;
+	
 	return res;
 }
 
@@ -76,12 +104,32 @@ static int stage_1(void)
 static int stage_2(void)
 {
 	int res=PROV_RESTART;
-	// diversify bootservices
+	int bsres=0;
 
-	// load coretee
+	bsres=updateAESKey();
+	if (!bsres)
+	{
+		// diversify AES components
 
-	// diversify components
-	int bsres=rewrite_bootservices(0);
+		// load coretee
+
+		// diversify components
+
+		// set next stage
+		bsres=setStage(0);
+
+		if (!bsres)
+		{
+		}
+		else
+			printf("Stage could not be set: %d\n",bsres);
+	}
+	else
+		printf("Could not diversify AES key: %d\n",bsres);
+
+
+	if (bsres)
+		res=PROV_STOP;
 
 	return res;
 }
@@ -89,6 +137,7 @@ static int stage_2(void)
 
 
 //-----------------------------------------------
+// public
 
 uint32_t getProvisioningStage(void)
 {

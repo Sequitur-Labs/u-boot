@@ -16,7 +16,7 @@ typedef unsigned int u32;
 # define M_FAST_PROV        (M_FASTCALL | 0x04000000)
 # define SLI_GETPROVSTAGE   (M_FAST_PROV | 1)
 # define SLI_SETPROVSTAGE   (M_FAST_PROV | 2)
-# define SLI_RENEW_BS       (M_FAST_PROV | 3)
+# define SLI_SETAES         (M_FAST_PROV | 3)
 # define SLI_RENEW_COMP     (M_FAST_PROV | 4)
 
 # define FW_VERSION 0x8300010c
@@ -108,23 +108,25 @@ uint32_t sli_get_provstage(void)
 	return res;
 }
 
-uint32_t sli_set_provstage(uint32_t stage)
+uint32_t sli_set_provstage(uint32_t addr,uint32_t len,uint32_t stage)
 {
 	uint32_t res=0;
 	res=peripheralManagementWrapper(SLI_SETPROVSTAGE,
-																	stage
-																	,0,0,0,0,0,0);
-	return res;
-}
-
-uint32_t sli_renew_bootservices(uint32_t addr,uint32_t len,uint32_t stage)
-{
-	uint32_t res=0;
-	res=peripheralManagementWrapper(SLI_RENEW_BS,
 																	addr,
 																	len,
 																	stage,
 																	0,0,0,0);
+	return res;
+}
+
+
+uint32_t sli_set_aeskey(uint32_t addr,uint32_t len)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_SETAES,
+																	addr,
+																	len,
+																	0,0,0,0,0);
 	return res;
 }
 
