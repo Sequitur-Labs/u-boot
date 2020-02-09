@@ -183,6 +183,7 @@ static int stage_2(void)
 		diversifyComponent(PLEX_ID_A_STR,"uboot","Plex A: U-Boot");
 		diversifyComponent(PLEX_ID_A_STR,"linux","Plex A: Linux Kernel");
 		diversifyComponent(PLEX_ID_A_STR,"dtb","Plex A: Device Tree Binary");
+		diversifyComponent(PLEX_ID_A_STR,"initramfs","Plex A: initramfs");
 
 		diversifyComponent(PLEX_ID_B_STR,"coretee","Plex B: CoreTEE");
 		diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot");

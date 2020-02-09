@@ -117,6 +117,7 @@ static void load_plex_components( uint8_t plexid ){
 	///*
 	component_setup(idstr,"linux","Linux kernel",0);
 	component_setup(idstr,"dtb","Device Tree Binary",0);
+	component_setup(idstr,"initramfs","initramfs",0);
 	//*/
 
 	// Load coretee last
