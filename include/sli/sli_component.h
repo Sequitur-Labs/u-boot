@@ -11,6 +11,9 @@
 
 #define SLIENC_ERROR 1
 
+#define CB_KEY_PROVISIONING  0
+#define CB_KEY_DEVICE        1
+
 #define PLEX_ID_A_STR "plex_a"
 #define PLEX_ID_B_STR "plex_b"
 

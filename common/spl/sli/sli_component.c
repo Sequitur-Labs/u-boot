@@ -151,6 +151,20 @@ uint32_t component_setup(const char* plexid, const char* component, const char* 
 		uint32_t dest=sli_entry_uint32_t(layout,plexid,keyname);
 		SET_KEY_NAME("_jump");
 		uint32_t ramaddr=sli_entry_uint32_t(layout,plexid,keyname);
+		/*
+		 * Helpful for debugging/seeing update changes.
+		 * {
+			SET_KEY_NAME("_version");
+			slip_key_t *key = sli_findParam(layout, plexid, keyname);
+			if (key)
+			{
+				char *version=sli_value_string(key);
+				if(version){
+					printf("Loading %s version %s...\n", component, version);
+					free(version);
+				}
+			}
+		}*/
 
 		if (addr && ramaddr && dest)
 		{
@@ -193,9 +207,11 @@ int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryp
 
 	switch(compheader.encryption){
 	case SLIENC_NONE:
+		break;
 	case SLIENC_BOOTSERVICES_AES:
 	case SLIENC_CORETEE_BLOB:
 		/*Encrypt buffer*/
+		res = sli_encrypt(buffer, buffer, size, keyselect);
 		break;
 	default:
 		break;
@@ -205,9 +221,9 @@ int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryp
 	compsize.headersize=sizeof(sli_compheader_t);
 	compsize.payloadsize=size;
 
-	final = malloc(compsize.headersize+compsize.payloadsize);
+	final = malloc(sizeof(sli_compsize_t)+compsize.headersize+compsize.payloadsize);
 	if(!final){
-		printf("[%s] - Failed to allocation buffer to save to NVM!\n", __func__);
+		printf("[%s] - Failed to allocate buffer to save to NVM!\n", __func__);
 		return -1;
 	}
 

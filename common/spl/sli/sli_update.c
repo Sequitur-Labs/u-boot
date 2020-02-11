@@ -368,14 +368,14 @@ done:
 	return componentaddr;
 }
 
-int encap_and_and_save_manifest( slip_t *slip ){
+int encap_and_save_manifest( slip_t *slip ){
 	int bres=0;
 	uint8_t* parambuffer=NULL;
 	int slipsize=0;
 
 	if (slip) {
 		parambuffer=sli_binaryParams(slip,&slipsize);
-		bres = save_component( parambuffer, slipsize, slip->nvm, 0, 0);
+		bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_BOOTSERVICES_AES, CB_KEY_DEVICE);
 	} else {
 		bres=-1;
 	}
@@ -554,7 +554,7 @@ int update_components( slip_t *update, uintptr_t componentaddr, size_t length, s
 	//Save plex manifest back to MMC
 	if(!res){
 		printf("Saving manifest back to NVM: 0x%08lx\n", layout->nvm);
-		encap_and_and_save_manifest(layout);
+		encap_and_save_manifest(layout);
 	} else {
 		printf("Failed to update components. Exiting Update\n");
 	}
