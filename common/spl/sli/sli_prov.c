@@ -26,6 +26,21 @@
 #define BOOT_BINARY_SIZE 0x00010000
 
 
+
+__attribute__((unused))
+static void printBuffer(uint8_t* buffer,size_t size)
+{
+	int index;
+	for (index=0;index<(int)size;index++)
+	{
+		printf("0x%02X ",((uint8_t*)buffer)[index]);
+		if ((index+1)%8==0)
+			printf("\n");
+	}
+	printf("\n");
+}
+
+
 //-----------------------------------------------
 // private
 #define DIRECT_LOAD     0
@@ -113,11 +128,10 @@ static int stage_1(void)
 	int res=PROV_RESTART;
 	int bsres=0;
 
-
 	printf("Fusing...\n");
 
-
 	bsres=setStage(2);
+	
 	if (!bsres)
 		printf("Restarting for Provisioning Stage 2\n");
 	else
