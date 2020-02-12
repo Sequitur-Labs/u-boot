@@ -26,6 +26,6 @@ u32 sli_renew_component(uint32_t addr,uint32_t len);
 #define DECREMENT_BLC 2
 u32 blc_op(unsigned int op, unsigned int *value);
 
-u32 handle_certs( uint32_t cert_addr );
+u32 handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr );
 
 # endif

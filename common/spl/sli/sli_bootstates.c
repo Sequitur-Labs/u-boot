@@ -87,20 +87,23 @@ static void load_coretee( uint8_t plexid ){
 	//Should return non-secure
 }
 
-static void load_certs( void ){
+static void load_coretee_slips( void ){
 	slip_t *slip = getComponentManifest();
 	if(!slip){
 		return;
 	}
 	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
-	uint32_t cert_ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
-	printf("Certs at: 0x%08x, copying to 0x%08x\n", cert_nvm, cert_ddr);
-	loadComponentBuffer( cert_nvm, (void*)cert_ddr );
+	uint32_t ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
 
-	outputData((void*)cert_ddr, 32);
-	printf("Calling into CoreTEE\n");
+	printf("Copying layout and cert SLIPs to [0x%08x]\n", ddr);
+#ifdef CONFIG_COMPIDX_ADDR
+	//ddr location can be reused.
+	loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)ddr);
+	handle_coretee_slips( SLIP_ID_LAYOUT, ddr );
+#endif
 
-	handle_certs( cert_ddr );
+	loadComponentBuffer( cert_nvm, (void*)ddr );
+	handle_coretee_slips( SLIP_ID_CERTIFICATES, ddr );
 }
 
 
@@ -119,8 +122,8 @@ static void load_plex_components( uint8_t plexid ){
 	// Load coretee last
 	load_coretee(plexid);
 
-	//Now that CoreTEE is up, send it the certs
-	load_certs();
+	//Now that CoreTEE is up, send it the slips
+	load_coretee_slips();
 
 	// finally jump to u-boot
 	if (uboot_jump)
