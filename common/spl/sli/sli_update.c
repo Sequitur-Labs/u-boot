@@ -230,16 +230,20 @@ static void set_updated_spl( void ){
 
 static void clear_updated_spl( void ){
 #ifdef USE_BOOTSTATE_FOR_SPL
+
 	uint32_t state = read_boot_state_values();
 	CLEAR_STATE(state, BS_SPL_UPDATING);
 	printf("Clearing update SPL flag\n");
 	update_boot_state(state);
+
 #else
+
 	uint32_t regval = in_le32(SNVS_BASE_ADDR + SNVS_LPGPR);
 
 	//Clear SPL Update MASK
 	regval &= ~(SPL_UPDT_MASK);
 	out_le32(SNVS_BASE_ADDR + SNVS_LPGPR, regval);
+
 #endif
 }
 
@@ -323,11 +327,11 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int re
 
 	if(!buffer){
 		printf("Ran out of memory for update!\n");
-		return NULL;
+		return 0;
 	}
 	memcpy(buffer, (void*)updateoffset, size);
 	
-	sli_compsize_t *compsize = (sli_compsize_t*)buffer;
+	//sli_compsize_t *compsize = (sli_compsize_t*)buffer;
 	sli_compheader_t *compheader = (sli_compheader_t*)(buffer + sizeof(sli_compsize_t));
 	//printf("compsize: 0x%08x,  compheader: 0x%08x\n", compsize, compheader);
 	//printf("Size: %d    payloadsize: %d headersize: %d compsize: %d\n", size, compsize->payloadsize, compsize->headersize, sizeof(sli_compsize_t));
@@ -339,7 +343,7 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int re
 	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES) {
 		if(reblob) {
 			//Decrypt and re-encrypt
-			res = sli_renew_component(buffer, size);
+			res = sli_renew_component((uint32_t)buffer, size);
 			if(res){
 				printf("Renew failed!\n");
 				res=-1;
@@ -348,7 +352,7 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int re
 			memcpy((void*)componentaddr,(void*)buffer, size);
 		} else {
 			//Just decrypt
-			res = sli_decrypt(buffer, componentaddr, size, compheader->keyselect);
+			res = sli_decrypt((uint32_t)buffer, (uint32_t)componentaddr, size, compheader->keyselect);
 			printf("Result of decrypt: 0x%08x\n", res);
 		}
 	} else {
@@ -362,7 +366,7 @@ done:
 
 	printf("[%s] - Done: 0x%08x\n", __func__, res);
 	if(res){
-		return NULL;
+		return 0;
 	}
 
 	return componentaddr;
@@ -564,7 +568,7 @@ int update_components( slip_t *update, uintptr_t componentaddr, size_t length, s
 
 slip_t * get_update_manifest( uintptr_t ddr, size_t length ){
 	slip_t *slip = NULL;
-	slip = sli_loadSlip( ddr );
+	slip = sli_loadSlip( (void*)ddr );
 	return slip;
 }
 
@@ -739,7 +743,7 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	length = parent->rawlength;
 	*plsize = length;
 
-	printf("Total update size: %ld  %ld\n", parent->rawlength, parent->length);
+	printf("Total update size: %zu  %zu\n", parent->rawlength, parent->length);
 
 	//Copy the whole update payload to DDR
 	sli_nvm_read(_device, offset, length, (void*)DDR_UPDATE_PAYLOAD_ADDR );

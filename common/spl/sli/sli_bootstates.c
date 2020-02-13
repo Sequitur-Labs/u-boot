@@ -87,20 +87,33 @@ static void load_coretee( uint8_t plexid ){
 	//Should return non-secure
 }
 
-static void load_certs( void ){
+static void load_coretee_slips( void ){
 	slip_t *slip = getComponentManifest();
+	uint32_t res=0;
 	if(!slip){
 		return;
 	}
 	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
-	uint32_t cert_ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
-	printf("Certs at: 0x%08x, copying to 0x%08x\n", cert_nvm, cert_ddr);
-	loadComponentBuffer( cert_nvm, (void*)cert_ddr );
+	uint32_t ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
 
-	outputData((void*)cert_ddr, 32);
-	printf("Calling into CoreTEE\n");
+	printf("Copying layout and cert SLIPs to [0x%08x]\n", ddr);
 
-	handle_certs( cert_ddr );
+	/*
+	 * Must send component layout first
+	 */
+#ifdef CONFIG_COMPIDX_ADDR
+	//ddr location can be reused.
+	loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)ddr);
+	res = handle_coretee_slips( SLIP_ID_LAYOUT, ddr );
+#endif
+
+	loadComponentBuffer( cert_nvm, (void*)ddr );
+	res = handle_coretee_slips( SLIP_ID_CERTIFICATES, ddr );
+	if(res == CORETEE_SAVE_SLIP_TO_NVM){
+		printf("Cert slip has been changed by CoreTEE. Save back to NVM\n");
+		sli_compsize_t *cs = (sli_compsize_t*)ddr;
+		sli_nvm_write(SLIDEV_DEFAULT, cert_nvm, (sizeof(sli_compsize_t)+cs->headersize+cs->payloadsize), (void*)ddr);
+	}
 }
 
 static void load_plex_components( uint8_t plexid ){
@@ -114,14 +127,13 @@ static void load_plex_components( uint8_t plexid ){
 	component_setup(idstr,"linux","Linux kernel",0);
 	component_setup(idstr,"dtb","Device Tree Binary",0);
 	component_setup(idstr,"initramfs","initramfs",0);
-	
 	//*/
 
 	// Load coretee last
 	load_coretee(plexid);
 
-	//Now that CoreTEE is up, send it the certs
-	//load_certs();
+	//Now that CoreTEE is up, send it the slips
+	load_coretee_slips();
 
 	// finally jump to u-boot
 	if (uboot_jump)
@@ -213,12 +225,7 @@ void activate_plex( uint8_t plexid, uint32_t stateval ){
  */
 void update_plex( uint8_t plexid, uint32_t stateval ){
 	int res=0;
-	unsigned int mdoyle_todo_unused_warning_implement_manifest_change;
 
-	//int index = (plexid == PLEX_A_ID) ? SLIP_PLEX_A : SLIP_PLEX_B;
-	//uintptr_t ddr_dest;
-	//uint8_t *binaryparams = 0;
-	//int paramsize = 0;
 	CLEAR_STATE(stateval, BS_UPDATE);
 
 	printf("Running update against plexID: %s\n", (plexid==0) ? "B" : "A");
@@ -236,12 +243,6 @@ void update_plex( uint8_t plexid, uint32_t stateval ){
 		boot_state_start( stateval );
 		return;
 	}
-
-	//Save updated plex information to DDR for CoreTEE
-	/*ddr_dest = CORETEE_TZDRAM_SLIP_BASE + SLIPSIZE*index;
-	binaryparams = sli_binaryParams( get_slip(index), &paramsize);
-	memcpy((void*)ddr_dest, binaryparams, paramsize);
-	free(binaryparams);*/
 
 	if(plexid == PLEX_A_ID) {
 		SET_STATE(stateval, BS_A_VALID);

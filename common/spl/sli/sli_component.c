@@ -211,7 +211,7 @@ int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryp
 	case SLIENC_BOOTSERVICES_AES:
 	case SLIENC_CORETEE_BLOB:
 		/*Encrypt buffer*/
-		res = sli_encrypt(buffer, buffer, size, keyselect);
+		res = sli_encrypt((uint32_t)buffer, (uint32_t)buffer, size, keyselect);
 		break;
 	default:
 		break;
@@ -234,7 +234,7 @@ int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryp
 	p+=sizeof(sli_compheader_t);
 	memcpy(p, buffer, size);
 
-	printf("Calling nvm write [0x%08x]   %d bytes\n", nvmaddr, compsize.headersize+compsize.payloadsize);
+	printf("Calling nvm write [%lu]   %d bytes\n", nvmaddr, compsize.headersize+compsize.payloadsize);
 	res = sli_nvm_write(_device, nvmaddr, (sizeof(sli_compsize_t)+compsize.headersize+compsize.payloadsize), final);
 
 	free(final);

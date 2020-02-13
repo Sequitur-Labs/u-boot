@@ -203,10 +203,8 @@ static int stage_2(void)
 		diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot");
 		diversifyComponent(PLEX_ID_B_STR,"linux","Plex B: Linux Kernel");
 		diversifyComponent(PLEX_ID_B_STR,"dtb","Plex B: Device Tree Binary");
-
-		diversifyComponent("p13n","certs","Certificates");
 		
-		
+		//Certs are handled by Coretee.
 
 		// set next stage
 		bsres=setStage(0);
