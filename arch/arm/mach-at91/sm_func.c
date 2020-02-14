@@ -12,7 +12,7 @@ typedef unsigned int u32;
 
 /*Need to sync up with CoreTEE OPTEE_SMC_FUNCID_*/
 # define BLC_OP 				(M_FASTCALL | 15) /*Operations on Boot Loop Counter*/
-# define HANDLE_CERTS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
+# define HANDLE_SLIPS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
 
 # define M_FAST_PROV        (M_FASTCALL | 0x04000000)
 # define SLI_GETPROVSTAGE   (M_FAST_PROV | 1)
@@ -146,11 +146,9 @@ uint32_t blc_op(uint32_t op, uint32_t *value){
 	return res.a0;
 }
 
-#define CERT_SLIP_ID 1
-uint32_t handle_certs( uint32_t cert_addr ){
+uint32_t handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr ){
 	struct arm_smccc_res res;
-	printf("Calling handle cert at addr: 0x%08x\n", cert_addr);
-	arm_smccc_smc(HANDLE_CERTS_OP, CERT_SLIP_ID, cert_addr, 0, 0, 0, 0, 0, &res);
+	arm_smccc_smc(HANDLE_SLIPS_OP, slip_id, slip_addr, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 
