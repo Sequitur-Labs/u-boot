@@ -12,7 +12,7 @@ typedef unsigned int u32;
 
 /*Need to sync up with CoreTEE OPTEE_SMC_FUNCID_*/
 # define BLC_OP 				(M_FASTCALL | 15) /*Operations on Boot Loop Counter*/
-# define HANDLE_SLIPS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
+# define HANDLE_CERTS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
 
 # define M_FAST_PROV        (M_FASTCALL | 0x04000000)
 # define SLI_GETPROVSTAGE   (M_FAST_PROV | 1)
@@ -26,7 +26,8 @@ typedef unsigned int u32;
 #include "sm_func.h"
 
 # include <linux/arm-smccc.h>
-static int peripheralManagementWrapper(unsigned long func, unsigned long a0, unsigned long a1, unsigned long a2, unsigned long a3, unsigned long a4, unsigned long a5, unsigned long a6)
+static int peripheralManagementWrapper(unsigned long func, unsigned long a0, unsigned long a1, unsigned long a2,
+				       unsigned long a3, unsigned long a4, unsigned long a5, unsigned long a6)
 {
   struct arm_smccc_res res;
   arm_smccc_smc(func, a0, a1, a2, a3, 0, 0, 0, &res);
@@ -94,23 +95,6 @@ uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t k
 }
 
 
-uint32_t blc_op(uint32_t op, uint32_t *value){
-	uint32_t tmp=*value;
-	struct arm_smccc_res res;
-	arm_smccc_smc(BLC_OP, op, tmp, 0, 0, 0, 0, 0, &res);
-	*value = res.a2;
-	return res.a0;
-}
-
-#define CERT_SLIP_ID 1
-uint32_t handle_certs( uint32_t cert_addr ){
-	struct arm_smccc_res res;
-	printf("Calling handle cert at addr: 0x%08x\n", cert_addr);
-	arm_smccc_smc(HANDLE_CERTS_OP, CERT_SLIP_ID, cert_addr, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-
 uint32_t sli_get_provstage(void)
 {
 	uint32_t res=0;
@@ -162,9 +146,11 @@ uint32_t blc_op(uint32_t op, uint32_t *value){
 	return res.a0;
 }
 
-uint32_t handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr ){
+#define CERT_SLIP_ID 1
+uint32_t handle_certs( uint32_t cert_addr ){
 	struct arm_smccc_res res;
-	arm_smccc_smc(HANDLE_SLIPS_OP, slip_id, slip_addr, 0, 0, 0, 0, 0, &res);
+	printf("Calling handle cert at addr: 0x%08x\n", cert_addr);
+	arm_smccc_smc(HANDLE_CERTS_OP, CERT_SLIP_ID, cert_addr, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 

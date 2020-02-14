@@ -85,7 +85,7 @@ int decryptComponent(void* src,void* dst)
 {
 	int res=0;
 	sli_compsize_t* compsize=(sli_compsize_t*)src;
-	// printf("in decryptComponent  0x%08x:0x%08x  0x%08x\n",compsize,compsize->magic,SLICOMP_MAGIC);
+	//printf("in decryptComponent  0x%08x:0x%08x  0x%08x\n",compsize,compsize->magic,SLICOMP_MAGIC);
 	if (compsize->magic==SLICOMP_MAGIC)
 	{
 		sli_compheader_t* header=(sli_compheader_t*)((uint8_t*)src+sizeof(sli_compsize_t));
@@ -173,7 +173,7 @@ uint32_t component_setup(const char* plexid, const char* component, const char* 
 			size_t compsize=loadComponentBuffer(addr,(void*)dest);
 			if (compsize)
 			{
-				int decres=decryptComponent((void*)ramaddr,(void*)dest);
+					int decres=decryptComponent((void*)ramaddr,(void*)dest);
 				if (!decres)
 				{
 					if (imagesize!=0)

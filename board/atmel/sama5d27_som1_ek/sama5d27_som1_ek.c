@@ -98,9 +98,7 @@ int misc_init_r(void)
 
 /* SPL */
 #ifdef CONFIG_SPL_BUILD
-void spl_board_init(void)
-{
-}
+
 
 static void ddrc_conf(struct atmel_mpddrc_config *ddrc)
 {
@@ -202,5 +200,24 @@ void at91_pmc_init(void)
 	      AT91_PMC_MCKR_MDIV_3 |
 	      AT91_PMC_MCKR_CSS_PLLA;
 	at91_mck_init(tmp);
+}
+
+
+void spl_board_init(void)
+{
+#ifndef CONFIG_CORETEE_WATCHDOG
+	/* disable watchdog */
+	printf("WATCHDOG IS NOT ENABLED\n");
+	at91_disable_wdt();
+#endif
+
+	
+	uint32_t stage=getProvisioningStage();
+
+	if (stage)
+		do_provisioning(stage);
+	else
+		run_boot_start();
+	
 }
 #endif

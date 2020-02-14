@@ -43,6 +43,10 @@
 #define CONFIG_SYS_LOAD_ADDR		0x22000000 /* load address */
 # endif
 
+#define SLI_SPL_SCRATCH 0x26000000
+#define SLI_SPL_SCRATCH_SIZE 0x40000000
+
+
 /* SerialFlash */
 #ifdef CONFIG_CMD_SF
 #define CONFIG_SF_DEFAULT_BUS		0
@@ -59,51 +63,60 @@
 # endif
 
 #undef CONFIG_BOOTCOMMAND
+
 #ifdef CONFIG_SD_BOOT
 /* u-boot env in sd/mmc card */
 #define CONFIG_ENV_SIZE		0x4000
 /* bootstrap + u-boot + env in sd card */
 # ifdef CONFIG_HD96
-#define CONFIG_BOOTCOMMAND	"mmc dev 1; fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x21000000 at91-sama5d27_som1_ek.dtb; " \
-				"fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x22000000 zImage; " \
-				"bootz 0x22000000 - 0x21000000"
+#define CONFIG_BOOTCOMMAND	"bootz 0x23000000 0x22500000 0x22000000"
 #else
 #define CONFIG_BOOTCOMMAND	"fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x21000000 at91-sama5d27_som1_ek.dtb; " \
 				"fatload mmc " CONFIG_ENV_FAT_DEVICE_AND_PART " 0x22000000 zImage; " \
 				"bootz 0x22000000 - 0x21000000"
 # endif
-#endif
+#endif /* CONFIG_SD_BOOT */
 
 #ifdef CONFIG_QSPI_BOOT
+
 #undef CONFIG_ENV_SPI_BUS
 #undef CONFIG_ENV_SPI_CS
 #define CONFIG_ENV_SPI_BUS		0
 #define CONFIG_ENV_SPI_CS		0
 #undef CONFIG_BOOTARGS
+
 # ifdef CONFIG_HD96
+#define CONFIG_BOOTCOMMAND	"bootz 0x23000000 0x22500000 0x22000000"
+#define CONFIG_USE_BOOTARGS
 #define CONFIG_BOOTARGS \
 	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk0p2 rw rootwait"
 #else
 #define CONFIG_BOOTARGS \
 	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rw rootwait"
 #endif
-#endif
+
+#endif /* CONFIG_QSPI_BOOT */
 
 /* SPL */
 #define CONFIG_SPL_TEXT_BASE		0x200000
 #define CONFIG_SPL_MAX_SIZE		0x10000
 # ifdef CONFIG_CORETEE
-# define CONFIG_SPL_BSS_START_ADDR      0x22000000
+/*# define CONFIG_SPL_BSS_START_ADDR      0x22000000*/
+# define CONFIG_SPL_BSS_START_ADDR      0x25000000
 # else
 #define CONFIG_SPL_BSS_START_ADDR	0x20000000
 # endif
-#define CONFIG_SPL_BSS_MAX_SIZE		0x80000
+/*#define CONFIG_SPL_BSS_MAX_SIZE		0x80000*/
+#define CONFIG_SPL_BSS_MAX_SIZE		0x00100000
+
 # ifdef CONFIG_CORETEE
-# define CONFIG_SYS_SPL_MALLOC_START    0x22080000
+/*# define CONFIG_SYS_SPL_MALLOC_START    0x22080000*/
+# define CONFIG_SYS_SPL_MALLOC_START    0x25100000
 # else
 #define CONFIG_SYS_SPL_MALLOC_START	0x20080000
 # endif
-#define CONFIG_SYS_SPL_MALLOC_SIZE	0x80000
+/*#define CONFIG_SYS_SPL_MALLOC_SIZE	0x80000*/
+#define CONFIG_SYS_SPL_MALLOC_SIZE	0x00800000
 
 #define CONFIG_SYS_MONITOR_LEN		(512 << 10)
 

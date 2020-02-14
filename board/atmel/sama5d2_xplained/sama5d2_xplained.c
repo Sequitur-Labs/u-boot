@@ -205,38 +205,6 @@ void at91_pmc_init(void)
 }
 
 
-static void jump_to_uboot(uint32_t entry)
-{
-	typedef void __noreturn (*uboot_entry_t)(void);
-	uboot_entry_t ue=(uboot_entry_t)entry;
-
-	printf("Invoking U-Boot: 0x%08x\n",entry);
-
-	ue();
-
-	// should not return from here
-	printf("U-Boot load FAILED\n");
-}
-
-
-static int _device=SLIDEV_DEFAULT;
-static int loadBootStateValue( void ){
-	int res=0;
-	slip_t* layout=getComponentManifest();
-	uint32_t bsv=0;
-	if(!layout){
-		printf("Component layout slip not found\n");
-		return -1;
-	}
-	uint32_t addr=sli_entry_uint32_t(layout,"p13n","bsv");
-	printf("Boot state values at addr: 0x%08x\n", addr);
-
-	int iores=sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
-	printf("iores: %d    bsv: 0x%02x\n", iores, (bsv&0xFF));
-	return res;
-}
-
-
 void spl_board_init(void)
 {
 #ifdef CONFIG_CORETEE
@@ -246,61 +214,13 @@ void spl_board_init(void)
 	at91_disable_wdt();
 #endif
 
-
-	//Call into the boot logic
-
-	uint32_t res=0;
-
-	uint32_t stage=getProvisioningStage();
-
-	if (stage!=0)
-		do_provisioning(stage);
-	else
-		run_boot_start();
-
-	// layout configuration
-#ifdef CONFIG_COMPIDX_ADDR
-	printf("About to load Layouts\n");
-	res = loadLayouts(CONFIG_COMPIDX_ADDR);
-	res = loadBootStateValue();
-#endif
-
+	
 	uint32_t stage=getProvisioningStage();
 
 	if (stage)
-	{
-		// Provisioning path
-		printf("Detected Provisioning Stage: %d\n",stage);
 		do_provisioning(stage);
-	}
 	else
-	{
-		// Production path
-
-# ifdef CONFIG_CORETEE
-		printf("BSp version: 0x%08x\n", tee_version());
-
-		size_t coretee_size=0;
-		uint32_t coretee_jump=component_setup(PLEX_ID_A,"coretee","CoreTEE",&coretee_size);
-
-		if (coretee_jump && coretee_size)
-			coretee(coretee_jump,coretee_size);
-	
-		printf("CoreTEE version: 0x%08x\n", tee_version());
-# endif
-
-		// loadComponents
-
-		// linux kernel
-		component_setup(PLEX_ID_A,"linux","Linux kernel",0);
-		component_setup(PLEX_ID_A,"dtb","Linux DTB",0);
-
-		// u-boot
-		uint32_t uboot_jump=component_setup("u-boot","U-Boot",0);
-		if (uboot_jump)
-			jump_to_uboot(uboot_jump);
-	}
-
+		run_boot_start();
 }
 
 #endif // SPL
