@@ -15,6 +15,9 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/sama5d2.h>
 
+#include "sli/sli_prov.h"
+#include "sli/sli_bootstates.h"
+
 extern void at91_pda_detect(void);
 
 DECLARE_GLOBAL_DATA_PTR;
