@@ -94,7 +94,7 @@ static void load_coretee_slips( void ){
 		return;
 	}
 	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
-	uint32_t ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" )+0x20000000;
+	uint32_t ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" );//+0x20000000;
 
 	printf("Copying layout and cert SLIPs to [0x%08x]\n", ddr);
 
@@ -104,11 +104,11 @@ static void load_coretee_slips( void ){
 #ifdef CONFIG_COMPIDX_ADDR
 	//ddr location can be reused.
 	loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)ddr);
-	res = handle_coretee_slips( SLIP_ID_LAYOUT, ddr );
+	res = handle_coretee_slips( SLIP_ID_LAYOUT, ddr, SLI_SLIP_MAX_SIZE );
 #endif
 
 	loadComponentBuffer( cert_nvm, (void*)ddr );
-	res = handle_coretee_slips( SLIP_ID_CERTIFICATES, ddr );
+	res = handle_coretee_slips( SLIP_ID_CERTIFICATES, ddr, SLI_SLIP_MAX_SIZE );
 	if(res == CORETEE_SAVE_SLIP_TO_NVM){
 		printf("Cert slip has been changed by CoreTEE. Save back to NVM\n");
 		sli_compsize_t *cs = (sli_compsize_t*)ddr;

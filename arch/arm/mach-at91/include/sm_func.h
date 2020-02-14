@@ -27,6 +27,6 @@ u32 sli_renew_component(uint32_t addr,uint32_t len);
 u32 blc_op(unsigned int op, unsigned int *value);
 
 #define CORETEE_SAVE_SLIP_TO_NVM 1
-u32 handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr );
+u32 handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr, uint32_t size );
 
 # endif

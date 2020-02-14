@@ -146,9 +146,9 @@ uint32_t blc_op(uint32_t op, uint32_t *value){
 	return res.a0;
 }
 
-uint32_t handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr ){
+uint32_t handle_coretee_slips( uint32_t slip_id, uint32_t slip_addr, uint32_t size ){
 	struct arm_smccc_res res;
-	arm_smccc_smc(HANDLE_SLIPS_OP, slip_id, slip_addr, 0, 0, 0, 0, 0, &res);
+	arm_smccc_smc(HANDLE_SLIPS_OP, slip_id, slip_addr, size, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 
