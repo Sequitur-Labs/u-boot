@@ -15,6 +15,7 @@ typedef unsigned int u32;
 # define HANDLE_SLIPS_OP 		(M_FASTCALL | 16) /*Decrypt cert manifest and load values*/
 
 # define M_FAST_PROV        (M_FASTCALL | 0x04000000)
+# define SLI_PROV           (M_FAST_PROV | 0)
 # define SLI_GETPROVSTAGE   (M_FAST_PROV | 1)
 # define SLI_SETPROVSTAGE   (M_FAST_PROV | 2)
 # define SLI_SETAES         (M_FAST_PROV | 3)
@@ -94,6 +95,17 @@ uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t k
 	return res;
 }
 
+
+uint32_t sli_prov(uint32_t addr,uint32_t len,uint32_t index)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_PROV,
+																	addr,
+																	len,
+																	index,
+																	0,0,0,0);
+	return res;
+}
 
 uint32_t sli_get_provstage(void)
 {

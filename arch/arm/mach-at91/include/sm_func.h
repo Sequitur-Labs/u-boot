@@ -16,6 +16,7 @@ u32 tee_load(unsigned int tee_destaddr, /* where to place TEE in DDR: destinatio
 u32 sli_encrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect);
 u32 sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect);
 
+u32 sli_prov(uint32_t addr,uint32_t len,uint32_t index);
 u32 sli_get_provstage(void);
 u32 sli_set_provstage(uint32_t addr,uint32_t len,uint32_t stage);
 u32 sli_set_aeskey(uint32_t addr,uint32_t len);

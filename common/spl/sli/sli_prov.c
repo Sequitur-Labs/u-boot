@@ -12,6 +12,7 @@
 #define PROV_STOP 0
 #define PROV_RESTART 1
 
+#define BS_TRAMP   0  // 1 param
 #define BS_STAGE   1  // 1 param
 #define BS_AES     2  // 0 params
 #define BS_COMP    3  // 0 params
@@ -67,6 +68,9 @@ static int mangleComponent(uint32_t addr,uint32_t len,int which, ...)
 	{
 		switch (which)
 		{
+		case BS_TRAMP:
+			res=sli_prov(SLI_SPL_SCRATCH,len,va_arg(valist,uint32_t));
+			break;
 		case BS_STAGE:
 			res=sli_set_provstage(SLI_SPL_SCRATCH,len,va_arg(valist,uint32_t));
 			break;
@@ -122,6 +126,12 @@ static int updateAESKey(void)
 }
 
 
+static int diversifyTramp(uint32_t index)
+{
+	return mangleComponent(BOOT_BINARY_ADDR,BOOT_BINARY_SIZE,BS_TRAMP,index);
+}
+
+
 // fuses
 static int stage_1(void)
 {
@@ -130,12 +140,16 @@ static int stage_1(void)
 
 	printf("Fusing...\n");
 
+	diversifyTramp(0);
+
 	bsres=setStage(2);
 	
 	if (!bsres)
 		printf("Restarting for Provisioning Stage 2\n");
 	else
 		printf("Stage could not be set: %d\n",bsres);
+
+	printf("\n\n");
 
 	if (bsres)
 		res=PROV_STOP;
@@ -165,7 +179,9 @@ static int diversifyComponent(const char* plex,const char* component,const char*
 		uint32_t addr=sli_entry_uint32_t(layout,plex,keyname);
 
 		if (addr)
+		{
 			res=mangleComponent(addr,0,BS_COMP);
+		}
 		else
 			res=DCOMP_ERR_ADDR;
 	}
@@ -199,10 +215,11 @@ static int stage_2(void)
 		diversifyComponent(PLEX_ID_A_STR,"dtb","Plex A: Device Tree Binary");
 		diversifyComponent(PLEX_ID_A_STR,"initramfs","Plex A: initramfs");
 
-		diversifyComponent(PLEX_ID_B_STR,"coretee","Plex B: CoreTEE");
-		diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot");
-		diversifyComponent(PLEX_ID_B_STR,"linux","Plex B: Linux Kernel");
-		diversifyComponent(PLEX_ID_B_STR,"dtb","Plex B: Device Tree Binary");
+		/* diversifyComponent(PLEX_ID_B_STR,"coretee","Plex B: CoreTEE"); */
+		/* diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot"); */
+		/* diversifyComponent(PLEX_ID_B_STR,"linux","Plex B: Linux Kernel"); */
+		/* diversifyComponent(PLEX_ID_B_STR,"dtb","Plex B: Device Tree Binary"); */
+		/* diversifyComponent(PLEX_ID_B_STR,"initramfs","Plex A: initramfs"); */
 		
 		//Certs are handled by Coretee.
 
@@ -215,6 +232,8 @@ static int stage_2(void)
 	}
 	else
 		printf("Could not diversify AES key: %d\n",bsres);
+
+	printf("\n\n");
 
 	if (bsres)
 		res=PROV_STOP;
