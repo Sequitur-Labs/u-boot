@@ -33,3 +33,11 @@ int sli_nvm_erase(int device,size_t offset,size_t len)
 	printf("sli_nvm_erase - not implemented\n");
 	return res;
 }
+
+__attribute__((weak))
+int sli_nvm_protect(int device,size_t offset,size_t len,int flag)
+{
+	int res=SLIDEV_ERR;
+	printf("sli_nvm_protect - not implemented\n");
+	return res;
+}

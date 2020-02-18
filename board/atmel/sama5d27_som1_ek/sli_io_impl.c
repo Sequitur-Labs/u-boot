@@ -50,6 +50,7 @@ static int initDevice(int device)
 
 	_flash = new;
 #endif
+
 	return (_flash != NULL);
 }
 
@@ -112,3 +113,4 @@ int sli_nvm_erase(int device,size_t offset,size_t len)
 	}
 	return res;
 }
+

@@ -18,5 +18,7 @@ int sli_nvm_read(int device,size_t offset,size_t len,void* buffer);
 int sli_nvm_write(int device,size_t offset,size_t len,void* buffer);
 int sli_nvm_erase(int device,size_t offset,size_t len);
 
+int sli_nvm_protect(int device,size_t offset,size_t len,int flag);
+
 
 #endif
