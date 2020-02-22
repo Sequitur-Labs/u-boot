@@ -138,9 +138,17 @@ static int stage_1(void)
 	int res=PROV_RESTART;
 	int bsres=0;
 
-	printf("Fusing...\n");
+
+	
+#ifdef CONFIG_SLI_FUSING
+	printf("Diversifying Bootloader (FUSING): ");
+#else
+	printf("Diversifying Bootloader (SECURAM): ");
+#endif
 
 	diversifyTramp(0);
+
+	printf("SUCCESS (%d)\n",0);
 
 	bsres=setStage(2);
 	

@@ -284,6 +284,11 @@ config COMPIDX_ADDR
 	hex "NVM address of the Component Index (compidx.sli)"
 
 
+config SLI_FUSING
+	bool "This indicates a fusing build - purely for output purposes"
+	default n
+
+
 config SLI_ALLOW_PLAIN
 	bool "Allow un-encrypted components in load"
 	default n
