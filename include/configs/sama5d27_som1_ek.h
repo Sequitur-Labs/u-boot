@@ -86,7 +86,7 @@
 #undef CONFIG_BOOTARGS
 
 # ifdef CONFIG_HD96
-#define CONFIG_BOOTCOMMAND	"bootz 0x23000000 0x22500000 0x22000000"
+#define CONFIG_BOOTCOMMAND	"bootz 0x23000000 - 0x22000000"
 #define CONFIG_USE_BOOTARGS
 #define CONFIG_BOOTARGS \
 	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk0p2 rw rootwait"
