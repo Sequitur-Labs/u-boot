@@ -89,7 +89,7 @@
 #define CONFIG_BOOTCOMMAND	"bootz 0x23000000 - 0x22000000"
 #define CONFIG_USE_BOOTARGS
 #define CONFIG_BOOTARGS \
-	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk0p2 rw rootwait"
+	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p1 rw rootwait"
 #else
 #define CONFIG_BOOTARGS \
 	"console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rw rootwait"
