@@ -57,11 +57,6 @@
 /* NAND flash */
 #undef CONFIG_CMD_NAND
 
-/* SPI flash */
-# ifndef CONFIG_CORETEE
-#define CONFIG_SF_DEFAULT_SPEED		66000000
-# endif
-
 #undef CONFIG_BOOTCOMMAND
 
 #ifdef CONFIG_SD_BOOT

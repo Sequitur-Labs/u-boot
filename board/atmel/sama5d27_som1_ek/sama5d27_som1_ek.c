@@ -206,8 +206,10 @@ void at91_pmc_init(void)
 }
 
 
+
 void spl_board_init(void)
 {
+#ifdef CONFIG_SPL_SLI_EXTENSIONS
 #ifndef CONFIG_CORETEE_WATCHDOG
 	/* disable watchdog */
 	printf("WATCHDOG IS NOT ENABLED\n");
@@ -221,6 +223,11 @@ void spl_board_init(void)
 		do_provisioning(stage);
 	else
 		run_boot_start();
+#endif // CONFIG_SPL_SLI_EXTENSIONS
+
+
 	
 }
+
+
 #endif

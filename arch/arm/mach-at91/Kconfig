@@ -282,6 +282,7 @@ config CORETEE_CRYPTO
 
 config COMPIDX_ADDR
 	hex "NVM address of the Component Index (compidx.sli)"
+	default 0x00010000
 
 
 config SLI_FUSING

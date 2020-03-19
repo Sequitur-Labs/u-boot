@@ -27,6 +27,12 @@ config SPL_FRAMEWORK
 
 if SPL
 
+config SPL_SLI_EXTENSIONS
+  bool "Enables Sequitur Labs extensions"
+	default n
+	help
+		Enables Sequitur Labs extensions (provisioning and encrypted component load).
+
 config SPL_LDSCRIPT
 	string "Linker script for the SPL stage"
 	default "arch/$(ARCH)/cpu/u-boot-spl.lds"
