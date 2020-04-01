@@ -126,12 +126,19 @@ _fiq:			.word fiq
 
 	.align	5
 undefined_instruction:
+	b .
 software_interrupt:
+	b .
 prefetch_abort:
+	b .
 data_abort:
+	b .
 not_used:
+	b .
 irq:
+	b .
 fiq:
+	b .
 1:
 	b	1b			/* hang and never return */
 

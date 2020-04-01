@@ -14,7 +14,7 @@
 #include <asm/arch/clk.h>
 #include <spl.h>
 
-static void switch_to_main_crystal_osc(void)
+void switch_to_main_crystal_osc(void)
 {
 	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
 	u32 tmp;

@@ -352,7 +352,8 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int re
 			memcpy((void*)componentaddr,(void*)buffer, size);
 		} else {
 			//Just decrypt
-			res = sli_decrypt((uint32_t)buffer, (uint32_t)componentaddr, size, compheader->keyselect);
+			// *** TODO FIX
+			// res = sli_decrypt((uint32_t)buffer, (uint32_t)componentaddr, size, compheader->keyselect);
 			printf("Result of decrypt: 0x%08x\n", res);
 		}
 	} else {

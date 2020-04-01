@@ -138,24 +138,21 @@ static int stage_1(void)
 	int res=PROV_RESTART;
 	int bsres=0;
 
+	printf("Diversifying BootServices... \n");
 
-	
-#ifdef CONFIG_SLI_FUSING
-	printf("Diversifying Bootloader (FUSING): ");
-#else
-	printf("Diversifying Bootloader (SECURAM): ");
-#endif
+	bsres=diversifyTramp(0);
 
-	diversifyTramp(0);
+	printf("%s (%d)\n",(bsres) ? "FAILED" : "SUCCESS",bsres);
 
-	printf("SUCCESS (%d)\n",0);
-
-	bsres=setStage(2);
-	
 	if (!bsres)
-		printf("Restarting for Provisioning Stage 2\n");
-	else
-		printf("Stage could not be set: %d\n",bsres);
+	{
+		bsres=setStage(2);
+	
+		if (!bsres)
+			printf("Restarting for Provisioning Stage 2\n");
+		else
+			printf("Stage could not be set: %d\n",bsres);
+	}
 
 	printf("\n\n");
 
@@ -215,22 +212,23 @@ static int stage_2(void)
 		// component index (CONFIG_COMPIDX_ADDR)
 		printf("Diversifying Component Index: ");
 		bsres=mangleComponent(CONFIG_COMPIDX_ADDR,0,BS_COMP);
-		printf("%d\n",bsres);
+		printf("%s (%d)\n",(bsres) ? "FAILED" : "SUCCESS",bsres);
+
+		diversifyComponent("p13n","certs","Certificate Manifest");
+
+		diversifyComponent("spl","spl","SPL");
 
 		diversifyComponent(PLEX_ID_A_STR,"coretee","Plex A: CoreTEE");
 		diversifyComponent(PLEX_ID_A_STR,"uboot","Plex A: U-Boot");
 		diversifyComponent(PLEX_ID_A_STR,"linux","Plex A: Linux Kernel");
 		diversifyComponent(PLEX_ID_A_STR,"dtb","Plex A: Device Tree Binary");
-		//diversifyComponent(PLEX_ID_A_STR,"initramfs","Plex A: initramfs");
+		/* diversifyComponent(PLEX_ID_A_STR,"initramfs","Plex A: initramfs"); */
 
 		/* diversifyComponent(PLEX_ID_B_STR,"coretee","Plex B: CoreTEE"); */
 		/* diversifyComponent(PLEX_ID_B_STR,"uboot","Plex B: U-Boot"); */
 		/* diversifyComponent(PLEX_ID_B_STR,"linux","Plex B: Linux Kernel"); */
 		/* diversifyComponent(PLEX_ID_B_STR,"dtb","Plex B: Device Tree Binary"); */
-		//diversifyComponent(PLEX_ID_B_STR,"initramfs","Plex B: initramfs");
-
-		//Certs are handled by Coretee.
-
+		
 		// set next stage
 		bsres=setStage(0);
 		if (!bsres)

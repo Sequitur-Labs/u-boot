@@ -83,15 +83,13 @@ uint32_t sli_encrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t k
 	return res;
 }
 
-uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect)
+uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst)
 {
 	uint32_t res=0;
 	res=peripheralManagementWrapper(SLI_DECRYPT,
 																	comp_src,
 																	comp_dst,
-																	len,
-																	keyselect,
-																	0,0,0);
+																	0,0,0,0,0);
 	return res;
 }
 
