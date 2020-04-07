@@ -399,6 +399,11 @@ void boot_state_start( uint32_t stateval ){
 	check_boot_state(stateval);
 }
 
+
+#ifndef CONFIG_CORETEE_WATCHDOG
+void at91_disable_wdt(void);
+#endif
+
 //#define BOOT_THROUGH
 void run_boot_start( void ){
 	uint32_t stateval=0;
