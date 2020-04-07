@@ -1,7 +1,8 @@
 #include <common.h>
-
 #include <asm/io.h>
+#include <div64.h>
 
+#include "mach/at91_wdt.h"
 #include "mach/sama5d2.h"
 #include "sli/sli_control.h"
 
@@ -18,7 +19,7 @@ void sli_reset_board(void)
  * value from seconds.
  */
 #define WDT_SEC2TICKS(s)	(((s) << 8) - 1)
-static void sli_setup_watchdog( void ){
+void sli_setup_watchdog( void ){
 	u64 timeout;
 	u32 ticks;
 	u32 regval;
@@ -82,10 +83,11 @@ unsigned int sli_get_reset_cause(void)
 	switch (reason) {
 	case 0x00:
 	case 0x01:
-	case 0x02:
 		return SLI_RC_POR;
-	case 0x03:
+	case 0x02:
 		return SLI_RC_WDOG;
+	case 0x03:
+		/*Software Reset*/
 	default:
 		break;
 	}

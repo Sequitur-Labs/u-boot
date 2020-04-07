@@ -228,6 +228,13 @@ void update_plex( uint8_t plexid, uint32_t stateval ){
 
 	CLEAR_STATE(stateval, BS_UPDATE);
 
+#ifdef CONFIG_CORETEE_PLEX_A_ONLY
+	/*
+	 * Force the update plex to be Plex A
+	 */
+	plexid=1;
+#endif
+
 	printf("Running update against plexID: %s\n", (plexid==0) ? "B" : "A");
 	res = run_update( plexid );
 #ifdef RUN_UPDATE
@@ -324,6 +331,18 @@ uint32_t read_boot_state_values( void ){
 	uint32_t addr=sli_entry_uint32_t(layout,"p13n","bsv");
 	sli_nvm_read(_device,addr,sizeof(uint32_t),&bsv);
 
+#ifdef CONFIG_CORETEE_PLEX_A_ONLY
+	/*
+	 * Force the state:
+	 *   - Plex A Primary
+	 *   - Plex B INVALID
+	 *   - Clear ACTIVATE
+	 */
+	SET_STATE(bsv, BS_A_PRIMARY);
+	CLEAR_STATE(bsv, BS_B_VALID);
+	CLEAR_STATE(bsv, BS_ACTIVATE);
+#endif
+
 	return bsv;
 }
 
@@ -392,6 +411,10 @@ void run_boot_start( void ){
 	 */
 #ifdef CONFIG_CORETEE_WATCHDOG
 	sli_setup_watchdog();
+#else
+	/* disable watchdog */
+	printf("WATCHDOG IS NOT ENABLED\n");
+	at91_disable_wdt();
 #endif
 	// layout configuration
 #ifdef CONFIG_COMPIDX_ADDR

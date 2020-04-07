@@ -278,6 +278,20 @@ config CORETEE_CRYPTO
 	depends on CORETEE
 	help
 	  Enable CoreTEE crypto via SMC.
+	  
+config CORETEE_WATCHDOG
+  bool "Set the boot watchdog used by CoreTEE"
+  	default n
+  	depends on CORETEE
+  	help
+  	  Sets the boot watchdog
+	  
+config CORETEE_PLEX_A_ONLY
+  bool "Force booting from Plex A only"
+  	default n
+  	depends on CORETEE
+  	help
+  	  Forces booting from Plex A. Plex B is set to invalid and can not be switched to.
 
 
 config COMPIDX_ADDR
