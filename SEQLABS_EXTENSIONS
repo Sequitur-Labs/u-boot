@@ -1,0 +1,96 @@
+Building the SPL with Sequitur Labs Encrypted Boot Extensions
+=============================================================
+
+In order to use the Sequitur Labs encrypted boot components, the SPL must be built with a specific set of configuration options:
+
+CONFIG_CORETEE
+CONFIG_SPL_SLI_EXTENSIONS
+CONFIG_COMPIDX_ADDR=0x00010000
+
+In addition, the following configuration options can be specified:
+
+CONFIG_CORETEE_WATCHDOG
+CONFIG_CORETEE_PLEX_A_ONLY
+
+
+For the SOM1_EK, two defconfig files are provided:
+
+sama5d27_som1_ek_qspiflash_defconfig - Base defconfig (no SLI extensions enabled)
+sama5d27_som1_ek_qspiflash_SLI_defconfig - with SLI extensions enabled
+
+
+
+Configuration Options
+---------------------
+
+CONFIG_CORETEE
+  This should be enabled for all SLI configurations and turns on specific handling for CoreTEE.
+
+CONFIG_SPL_SLI_EXTENSIONS
+  This will enable the inclusion and build of the SLI boot component load and will change the standard SPL boot sequence.
+	Make sure that CONFIG_SPL_BOARD_INIT=y
+
+  With the extensions enabled and CONFIG_SPL_BOARD_INIT=y,
+
+    board_init_r() --> spl_board_init()
+
+  and will load/provision the system.  spl_board_init() will initiate either the provisioning or production boot sequence and will not return (See PROVISIONING and PRODUCTION flows detailed below).
+
+CONFIG_COMPIDX_ADDR=0x00010000
+  This informs the SPL as to where the component index is located in the NVM (QSPI).  The component index is specified in the compidx.conf manifest and flashed to the board in the QSPI at this offset.
+
+
+CONFIG_CORETEE_WATCHDOG
+  Enables the watchdog timer for boot failover.
+	
+
+CONFIG_CORETEE_PLEX_A_ONLY
+  This should be set to 'y' if only one plex is to be used.  If this is disabled, then the failover mechanism will expect that there will be another set of components located in the NVM at the offsets specified in the component index.
+
+
+
+PROVISIONING flow
+-----------------
+
+When the SPL reaches spl_board_init(), it will check to see if BootServices is in provisioning mode.  If that is the case, the SPL will run the two stage provisioning flow in common/spl/sli/sli_prov.c:do_provisioning().  Provisioning has the SPL load the components from the NVM and passing the buffers to the secure BootServices for re-encryption using an on the fly generated device unique key.
+
+
+Stage 1 - common/spl/sli/sli_prov.c:stage_1()
+---------------------------------------------
+
+*** Calls BootServices to blow fuses for a diversified board *** (only with production FUSING builds of BootServices)
+Loads from NVM BootServices and diversifies the binary
+Sets flag for Stage 2 diversification
+Reboots board
+
+
+Stage 2 - common/spl/sli/sli_prov.c:stage_2()
+---------------------------------------------
+
+Diversifies and creates new AES key
+Diversifies manifests
+Diversifies the SPL
+
+Diversifies the plex components 
+  Modifying the list of components to be diversified is done here.  Entries and addresses should be specified in the component index (compidx.conf), as the SPL will look up the NVM locations from there.
+
+Sets flag for PRODUCTION boot
+Reboots board
+
+
+
+PRODUCTION flow
+---------------
+
+When the SPL reaches spl_board_init(), if BootServices is in production boot mode then it will start the boot flow in common/spl/sli/sli_bootstates.c:run_boot_start.
+
+The boot sequence will:
+
+Load component layouts (compidx.conf - informs the SPL where in NVM to load components and where the place them in DDR)
+Check the bootstate - Check the bootstate flag and execute the code path required.  This could be managing an update package, or continuing on to the standard boot sequence.
+
+If the standard boot sequence is to be done:
+
+common/spl/sli/sli_bootstates.c:load_plex_components() will load the components from NVM and pass them to BootServices for decrpytion and placement in DDR.  CoreTEE is then also decrypted and invoked before the SPL jumps to the returned address representing U-Boot.
+
+
