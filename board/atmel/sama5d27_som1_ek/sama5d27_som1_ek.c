@@ -210,13 +210,6 @@ void at91_pmc_init(void)
 void spl_board_init(void)
 {
 #ifdef CONFIG_SPL_SLI_EXTENSIONS
-#ifndef CONFIG_CORETEE_WATCHDOG
-	/* disable watchdog */
-	printf("WATCHDOG IS NOT ENABLED\n");
-	at91_disable_wdt();
-#endif
-
-	
 	uint32_t stage=getProvisioningStage();
 
 	if (stage)
