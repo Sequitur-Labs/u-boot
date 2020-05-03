@@ -8,6 +8,7 @@ typedef unsigned int u32;
 # define TEE_LOAD           (M_FASTCALL | 6)
 # define SLI_DECRYPT        (M_FASTCALL | 7)
 # define SLI_ENCRYPT		(M_FASTCALL | 8)
+# define SLI_VERIFY			(M_FASTCALL | 9)
 
 
 /*Need to sync up with CoreTEE OPTEE_SMC_FUNCID_*/
@@ -31,7 +32,7 @@ static int peripheralManagementWrapper(unsigned long func, unsigned long a0, uns
 				       unsigned long a3, unsigned long a4, unsigned long a5, unsigned long a6)
 {
   struct arm_smccc_res res;
-  arm_smccc_smc(func, a0, a1, a2, a3, 0, 0, 0, &res);
+  arm_smccc_smc(func, a0, a1, a2, a3, a4, a5, a6, &res);
   return (int)res.a0;
 }
 
@@ -93,6 +94,22 @@ uint32_t sli_decrypt(uint32_t comp_src,uint32_t comp_dst)
 	return res;
 }
 
+u32 sli_verify_signature(uint32_t payload, uint32_t pl_length,
+		uint32_t signature, uint32_t sig_length,
+		uint32_t pubkey, uint32_t pk_length,
+		uint32_t alg)
+{
+	uint32_t res=0;
+	res=peripheralManagementWrapper(SLI_VERIFY,
+																	payload,
+																	pl_length,
+																	signature,
+																	sig_length,
+																	pubkey,
+																	pk_length,
+																	alg);
+	return res;
+}
 
 uint32_t sli_prov(uint32_t addr,uint32_t len,uint32_t index)
 {

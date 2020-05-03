@@ -16,6 +16,17 @@ u32 tee_load(unsigned int tee_destaddr, /* where to place TEE in DDR: destinatio
 u32 sli_encrypt(uint32_t comp_src,uint32_t comp_dst,uint32_t len,uint32_t keyselect);
 u32 sli_decrypt(uint32_t comp_src,uint32_t comp_dst);
 
+//Verify the signature of the payload using the public key.
+/*
+ * Currently only ECDSA 256 is supported but the signature length and key length will
+ * make it easier to be flexible in the future.
+ *
+ * 'alg' is ignored.
+ *
+ * Returns '0' if verification succeeds
+ */
+u32 sli_verify_signature(uint32_t payload, uint32_t pl_length, uint32_t signature, uint32_t sig_length, uint32_t pubkey, uint32_t pk_length, uint32_t alg);
+
 u32 sli_prov(uint32_t addr,uint32_t len,uint32_t index);
 u32 sli_get_provstage(void);
 u32 sli_set_provstage(uint32_t addr,uint32_t len,uint32_t stage);

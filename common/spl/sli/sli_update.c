@@ -9,12 +9,12 @@ written consent of Sequitur Labs Inc. is forbidden.
 ================================================*/
 
 #include <common.h>
+#include <inttypes.h>
 #include <command.h>
 #include <memalign.h>
 #include <asm/io.h>
 
 #include <sm_func.h>
-
 
 #include <sli/sli_io.h>
 #include <sli/sli_params.h>
@@ -26,7 +26,7 @@ written consent of Sequitur Labs Inc. is forbidden.
 #define SLI_RUN_UPDATE
 #ifdef SLI_RUN_UPDATE
 
-//#define RUN_ECC_VERIFY
+#define RUN_ECC_VERIFY
 
 #include <sli/asn1/asn1.h>
 
@@ -101,16 +101,50 @@ uint32_t parseECCKeyNode( dernode *key ){
 }
 
 #ifdef RUN_ECC_VERIFY
+static slip_t *load_cert_slip( void ){
+	slip_t *slip = getComponentManifest();
+	slip_t *cert_slip = NULL;
+	int res=0;
+	if(!slip){
+		return NULL;
+	}
+	uint32_t cert_nvm = sli_entry_uint32_t( slip, "p13n", "certs_src" );
+	uint32_t ddr = sli_entry_uint32_t( slip, "p13n", "certs_dst" );//+0x20000000;
+	uint32_t plain = ddr + 0x10000; /*64KB, slip size*/
+
+	loadComponentBuffer(cert_nvm, (void*)ddr);
+
+	//Decrypt
+	res = sli_decrypt(ddr, plain);
+	if(res){
+		printf("Failed to debug certificate slip\n");
+		return NULL;
+	}
+
+	cert_slip = sli_loadSlip((void*)plain);
+	printf("Certificate slip: %p\n", cert_slip);
+
+	return cert_slip;
+}
+
 int get_oem_public_key(uint8_t *oempk, size_t pksize){
 	int res=0;
 	int index=6;
 	dernode *parent=NULL, *cert=NULL, *version=NULL;
+	slip_t *cert_slip = load_cert_slip();
+	slip_key_t *key=NULL;
 
-	slip_key_t* key=sli_findParam(get_slip(SLIP_CERTS),"oem","oem.root.cert");
+	if(!cert_slip){
+		printf("Unable to load certificate slip\n");
+		return -1;
+	}
+
+	key=sli_findParam(cert_slip,"oem","oem.root.cert");
 
 	if(!key || key->size == 0){
 		printf("Failed to load OEM CERT. Unable to verify update.\n");
-		return -1;
+		res = -1;
+		goto done;
 	}
 
 	//printf("Root Cert\n");
@@ -119,7 +153,8 @@ int get_oem_public_key(uint8_t *oempk, size_t pksize){
 	res = asn1_parseDER(&parent, key->value, key->size);
 	if(res){
 		//printf("Failed to parse the root cert\n");
-		return -1;
+		res = -1;
+		goto done;
 	}
 
 	cert = asn1_getChild(parent, 0);
@@ -135,13 +170,11 @@ int get_oem_public_key(uint8_t *oempk, size_t pksize){
 	if(res){
 		//printf("Failed to parse OEM cert for public key\n");
 		goto done;
-		return res;
 	}
 
 	if(pksize < (ECC_KEYVAL_SIZE * 2)){
 		//printf("Need a larger buffer for OEM PK\n");
 		goto done;
-		return -2;
 	}
 
 	memcpy(oempk, _seqoem_X, ECC_KEYVAL_SIZE);
@@ -151,28 +184,99 @@ int get_oem_public_key(uint8_t *oempk, size_t pksize){
 	free(_seqoem_Y); _seqoem_Y = NULL;
 
 done:
-	if(parent)
+	if(key){
+		free(key);
+	}
+
+	if(cert_slip){
+		free(cert_slip);
+	}
+
+	if(parent){
 		asn1_freeTree(parent, AP_FREENODEONLY);
+	}
 	return res;
 }
 
+#define EC_POINT_SIZE 32
+static uint32_t extract_ec_signature(uint8_t** sigbuffer,size_t* sigbuffersize,dernode* signode)
+{
+	uint32_t res=-1;
+	dernode *r_node=NULL, *s_node=NULL;
+	if(!signode ||  asn1_getChildCount(signode) != 2){
+		printf("Failed to get ECC Signature\n");
+		return res;
+	}
+
+	// ec signature = sequence with two ints
+	r_node=asn1_getChild(signode,0);
+	s_node=asn1_getChild(signode,1);
+
+	if (r_node && s_node)
+	{
+		uint8_t* r_int=r_node->content;
+		size_t r_intsize=r_node->length;
+		size_t r_offset=0;
+
+		uint8_t* s_int=s_node->content;
+		size_t s_intsize=s_node->length;
+		size_t s_offset=0;
+
+		if (r_int[0]==0x0)
+		{
+			r_int+=1;
+			r_intsize-=1;
+		}
+
+		if (s_int[0]==0x0)
+		{
+			s_int+=1;
+			s_intsize-=1;
+		}
+
+		if (s_intsize<=EC_POINT_SIZE && r_intsize<=EC_POINT_SIZE)
+		{
+			r_offset=EC_POINT_SIZE-r_intsize;
+			s_offset=EC_POINT_SIZE-s_intsize;
+
+			//*sigbuffersize=r_intsize+s_intsize;
+			*sigbuffersize=EC_POINT_SIZE*2;
+			*sigbuffer=(uint8_t*)calloc(1,*sigbuffersize);
+
+			memcpy(*sigbuffer+r_offset,r_int,r_intsize);
+			memcpy(*sigbuffer+EC_POINT_SIZE+s_offset,s_int,s_intsize);
+			res=0;
+		}
+		else
+			res=-1;
+	}
+	else
+		res=-1;
+
+	return res;
+}
+
+
 int verify_update(dernode *signode, dernode *plnode){
 	int res=0;
-	uint8_t *oempk=NULL, *plhash=NULL, *sigbuff=NULL;
+	uint8_t *oempk=NULL, *sigbuff=NULL;
 	size_t siglength;
-	size_t pksize = uECC_curve_public_key_size(uECC_secp256r1());
+	size_t pksize = EC_POINT_SIZE*2;
 
 	oempk = malloc(pksize);
-	plhash = malloc_cache_aligned(SHA256LEN);
-	if(!oempk || !plhash)
-		return -1;
-
+	memset(oempk, 0, pksize);
 	res = get_oem_public_key(oempk, pksize);
+	if(res){
+		printf("Failed to extract public key");
+		goto done;
+	}
+
+	printf("Public Key\n");
+	outputData(oempk, pksize);
 
 	//Need to hash the payload.
 	//Check alignment because we don't have a lot of 'malloc' space to use.
 	memcpy((void*)DDR_UPDATE_CONTENT_ADDR, plnode->content, plnode->length);
-	sli_run_sha(plhash, (void*)DDR_UPDATE_CONTENT_ADDR, plnode->length, SLI_SHA_256);
 
 	if((res = extract_ec_signature(&sigbuff, &siglength, signode)) != 0){
 		printf("Failed to extract EC signature from node\n");
@@ -182,16 +286,10 @@ int verify_update(dernode *signode, dernode *plnode){
 	printf("Update package signature for debugging!!!!\n");
 	outputData(sigbuff, siglength);
 
-	if((res = uECC_verify(oempk, plhash, SHA256LEN, sigbuff, uECC_secp256r1())) == 0){
-		printf("Failed to verify update package signature\n");
-		res=-1;
-		goto done;
-	}
+	res = (int)sli_verify_signature(DDR_UPDATE_CONTENT_ADDR, plnode->length, (uint32_t)sigbuff, siglength, (uint32_t)oempk, pksize, 0);
 
-	res = 0; /*Success*/
 done:
 	if(oempk) free(oempk);
-	if(plhash) free(plhash);
 	return res;
 }
 #endif /*RUN_ECC_VERIFY*/
@@ -209,8 +307,7 @@ static int get_updated_spl( void ){
 	uint32_t state = read_boot_state_values();
 	return CHECK_STATE(state, BS_SPL_UPDATING);
 #else
-	uint32_t regval = in_le32(SNVS_BASE_ADDR + SNVS_LPGPR);
-	return (regval & SPL_UPDT_MASK) == SPL_UPDT_MASK;
+	print("Alternative update flag not implemented.\n");
 #endif
 }
 
@@ -220,11 +317,7 @@ static void set_updated_spl( void ){
 	SET_STATE(state, BS_SPL_UPDATING);
 	update_boot_state(state);
 #else
-	uint32_t regval = in_le32(SNVS_BASE_ADDR + SNVS_LPGPR);
-
-	//Set SPL Update MASK
-	regval |= (SPL_UPDT_MASK);
-	out_le32(SNVS_BASE_ADDR + SNVS_LPGPR, regval);
+	print("Alternative update flag not implemented.\n");
 #endif
 }
 
@@ -237,13 +330,7 @@ static void clear_updated_spl( void ){
 	update_boot_state(state);
 
 #else
-
-	uint32_t regval = in_le32(SNVS_BASE_ADDR + SNVS_LPGPR);
-
-	//Clear SPL Update MASK
-	regval &= ~(SPL_UPDT_MASK);
-	out_le32(SNVS_BASE_ADDR + SNVS_LPGPR, regval);
-
+	print("Alternative update flag not implemented.\n");
 #endif
 }
 
@@ -380,7 +467,8 @@ int encap_and_save_manifest( slip_t *slip ){
 
 	if (slip) {
 		parambuffer=sli_binaryParams(slip,&slipsize);
-		bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_BOOTSERVICES_AES, CB_KEY_DEVICE);
+		//bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_BOOTSERVICES_AES, CB_KEY_DEVICE);
+		bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_NONE, CB_KEY_DEVICE);
 	} else {
 		bres=-1;
 	}
@@ -474,7 +562,7 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	int res=0, needs_reset=0;
 	uint32_t offset;
 	uint32_t size=0;
-	uintptr_t mmcdest=0;
+	uintptr_t nvmdest=0;
 	uintptr_t ddraddr=0;
 	uintptr_t compaddr=uaddr;
 
@@ -484,9 +572,8 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	memcpy(key, component, strlen(component));
 	memcpy(key+strlen(component), "_src", 4);
 
-	needs_reset = (strcmp(component, "spl_tramp")==0);
+	needs_reset = (strcmp(component, "spl")==0);
 
-	//Size must be number of MMC blocks
 	size = sli_entry_uint32_t(update, component, "size");
 	if(size==0) {
 		//printf("Unable to find component[%s] in update manifest\n", component);
@@ -512,18 +599,20 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	}
 
 	if(needs_reset){
-		printf("Updating Component - Copying [%d bytes] to NVM address: 0x%08x\n", size, SLI_SPL_UPDATE_ADDR);
-		sli_nvm_write(_device, SLI_SPL_UPDATE_ADDR, size, (uint8_t*)ddraddr);
+		nvmdest = sli_entry_uint32_t(layout, "spl", key);
+		printf("Updating SPL - Copying [%d bytes] to NVM address: %" PRIxPTR "\n", size, nvmdest);
+		sli_nvm_write(_device, nvmdest, size, (uint8_t*)ddraddr);
 		set_updated_spl();
 		printf("SPL is updated. Resetting... This may take a few seconds.\n");
 		sli_reset_board();
 		while(1){ udelay(1000); }
 	} else {
-		mmcdest = sli_entry_uint32_t(layout, (plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR, key);
 
-		//Copy blob back to MMC.
-		printf("Copying component to NVM from: 0x%08lx to 0x%08lx numbytes: %d\n", ddraddr, mmcdest, size);
-		res = sli_nvm_write(_device, mmcdest, size, (void*)ddraddr);
+		nvmdest = sli_entry_uint32_t(layout, (plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR, key);
+
+		//Copy blob back to NVM.
+		printf("Copying component to NVM from: 0x%08lx to %" PRIxPTR " numbytes: %d\n", ddraddr, nvmdest, size);
+		res = sli_nvm_write(_device, nvmdest, size, (void*)ddraddr);
 		if(res){
 			printf("FAILED TO WRITE TO NVM!!!\n");
 		}
