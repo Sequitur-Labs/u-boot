@@ -32,7 +32,8 @@ written consent of Sequitur Labs Inc. is forbidden.
 
 #include <sli/sli_update.h>
 
-#define SLI_SPL_UPDATE_ADDR 0x00 /*Address in NVM*/
+#define SLI_BOOT_UPDATE_ADDR 0x00 /*Address in NVM*/
+#define SLI_BOOT_COMPONENT_STR "boot"
 #define SLI_SPL_COMPONENT_STR "spl"
 
 #define DDR_UPDATE_PAYLOAD_ADDR 0x3E000000
@@ -40,11 +41,6 @@ written consent of Sequitur Labs Inc. is forbidden.
 #define DDR_UPDATE_COMPONENT_ADDR 0x3F800000
 #define P(val) (void*)(val)
 
-extern int blob_decap(u8*,u8*,u8*,u32);
-extern int blob_encap(u8*,u8*,u8*,u32);
-extern void caam_jr_strstatus(u32 status);
-extern void ct_init_sec_wdog(u32 tmo_ms, u32 pre_interrupt_ms);
-extern void secure_wdog_setup(u32 tmo_ms, u32 pre_interrupt_ms);
 extern void outputData( uint8_t *data, uint32_t len);
 
 //#define USE_UPDATE_MMC
@@ -271,8 +267,8 @@ int verify_update(dernode *signode, dernode *plnode){
 		goto done;
 	}
 
-	printf("Public Key\n");
-	outputData(oempk, pksize);
+	//printf("Public Key\n");
+	//outputData(oempk, pksize);
 
 	//Need to hash the payload.
 	//Check alignment because we don't have a lot of 'malloc' space to use.
@@ -283,8 +279,8 @@ int verify_update(dernode *signode, dernode *plnode){
 		goto done;
 	}
 
-	printf("Update package signature for debugging!!!!\n");
-	outputData(sigbuff, siglength);
+	//printf("Update package signature for debugging!!!!\n");
+	//outputData(sigbuff, siglength);
 
 	res = (int)sli_verify_signature(DDR_UPDATE_CONTENT_ADDR, plnode->length, (uint32_t)sigbuff, siglength, (uint32_t)oempk, pksize, 0);
 
@@ -302,30 +298,30 @@ typedef struct blobheader
 } blobheader_t;
 
 #define USE_BOOTSTATE_FOR_SPL
-static int get_updated_spl( void ){
+static int get_updated_flags( uint32_t flag ){
 #ifdef USE_BOOTSTATE_FOR_SPL
 	uint32_t state = read_boot_state_values();
-	return CHECK_STATE(state, BS_SPL_UPDATING);
+	return CHECK_STATE(state, flag);
 #else
 	print("Alternative update flag not implemented.\n");
 #endif
 }
 
-static void set_updated_spl( void ){
+static void set_updated_flags( uint32_t flag ){
 #ifdef USE_BOOTSTATE_FOR_SPL
 	uint32_t state = read_boot_state_values();
-	SET_STATE(state, BS_SPL_UPDATING);
+	SET_STATE(state, flag);
 	update_boot_state(state);
 #else
 	print("Alternative update flag not implemented.\n");
 #endif
 }
 
-static void clear_updated_spl( void ){
+static void clear_updated_flags( void ){
 #ifdef USE_BOOTSTATE_FOR_SPL
 
 	uint32_t state = read_boot_state_values();
-	CLEAR_STATE(state, BS_SPL_UPDATING);
+	CLEAR_STATE(state, (BS_SPL_UPDATING | BS_BOOT_UPDATING));
 	printf("Clearing update SPL flag\n");
 	update_boot_state(state);
 
@@ -334,80 +330,7 @@ static void clear_updated_spl( void ){
 #endif
 }
 
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
-#define BRN_SIZE 32
-static int set_update_zmk( void ){
-	int res=0;
-	uint32_t brnaddr=0;
-	uint8_t *brnblob = malloc_cache_aligned(SLI_MMC_BLOCK_SIZE);
-	uint8_t *brn = malloc_cache_aligned(BRN_SIZE);
-	slip_t *component;
-
-	printf("Setting the ZMK for update!\n");
-
-	if(!brnblob || !brn){
-		printf("Failed to allocate buffers for BRN\n");
-		return -1;
-	}
-
-	//Get the BRN from the component manifest
-	component = get_slip(SLIP_COMPONENT);
-	if(!component){
-		printf("No component manifest found during update\n");
-		res = -1;
-	}
-
-	if(!res){
-		brnaddr = get_keyval_uint32(component, "p13n", "brn");
-		if(!brnaddr){
-			res = -1;
-		}
-	}
-
-	if(!res) {
-		blobheader_t* header=NULL;
-		uint8_t *keymod=malloc_cache_aligned(32);
-		uintptr_t dataaddr = DDR_UPDATE_COMPONENT_ADDR; /*Known aligned address*/
-
-		memset(keymod,0,32);
-
-		sli_nvm_read(_device, brnaddr, SLI_MMC_BLOCK_SIZE, brnblob);
-
-		select_otpmk();
-
-		header = (blobheader_t*)brnblob;
-		memcpy((void*)dataaddr, (void*)(brnblob+sizeof(blobheader_t)), header->totalsize);
-
-		if(header->payloadsize != BRN_SIZE){
-			printf("Sizes are wrong. Payload: %d   BRN: %d\n", header->payloadsize, BRN_SIZE);
-			res=-1;
-		} else {
-			res = blob_decap((u8*)keymod,(u8*)dataaddr, (u8*)brn, header->payloadsize);
-		}
-
-		free(keymod);
-	}
-
-	if(!res){
-		res=set_zmk(brn, BRN_SIZE);
-	} else {
-		printf("BRN decapsulation failed\n");
-	}
-
-	if(brn)	free(brn);
-	if(brnblob) free(brnblob);
-
-	return res;
-}
-
-static void clear_update_zmk( void ){
-	memset((void*)DDR_UPDATE_COMPONENT_ADDR, 0, 32);
-	set_zmk((uint8_t*)DDR_UPDATE_COMPONENT_ADDR, 32);
-}
-
-#endif
-
-uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int reblob){
+uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int flag){
 	uintptr_t componentaddr = DDR_UPDATE_COMPONENT_ADDR;
 	uint8_t *buffer = malloc(size);
 	uint32_t res=0;
@@ -423,26 +346,25 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int re
 	//printf("compsize: 0x%08x,  compheader: 0x%08x\n", compsize, compheader);
 	//printf("Size: %d    payloadsize: %d headersize: %d compsize: %d\n", size, compsize->payloadsize, compsize->headersize, sizeof(sli_compsize_t));
 
-	if(compheader->encryption == SLIENC_NONE) {
+	if( flag == BS_BOOT_UPDATING ){
+		//Pass boot.cip to bootservices to re-encrypt
+		res = sli_prov((uint32_t)buffer, size, 0);
+		printf("Result of decrypt: 0x%08x\n", res);
+		memcpy((void*)componentaddr, (void*)buffer, size);
+	}
+	else if(compheader->encryption == SLIENC_NONE) {
 		// no blobs - just copy updateoffset to componentaddr
 		printf("Component is not blobbed. Copying [%d bytes] from: 0x%08lx   to 0x%08lx\n", size, updateoffset, componentaddr);
 		memcpy((void*)componentaddr,(void*)buffer, size);
-	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES) {
-		if(reblob) {
-			//Decrypt and re-encrypt
-			res = sli_renew_component((uint32_t)buffer, size);
-			if(res){
-				printf("Renew failed!\n");
-				res=-1;
-				goto done;
-			}
-			memcpy((void*)componentaddr,(void*)buffer, size);
-		} else {
-			//Just decrypt
-			// *** TODO FIX
-			// res = sli_decrypt((uint32_t)buffer, (uint32_t)componentaddr, size, compheader->keyselect);
-			printf("Result of decrypt: 0x%08x\n", res);
+	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES || compheader->encryption == SLIENC_LICENCE) {
+		//Decrypt and re-encrypt
+		res = sli_renew_component((uint32_t)buffer, size);
+		if(res){
+			printf("Renew failed!\n");
+			res=-1;
+			goto done;
 		}
+		memcpy((void*)componentaddr,(void*)buffer, size);
 	} else {
 		//Not implemented...
 		printf("[%s] - Encryption type not implemented...\n", __func__);
@@ -559,7 +481,7 @@ void update_keys( slip_t *layout, uint8_t plexid, slip_t *update, const char* co
 
 
 int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t uaddr, const char* component ){
-	int res=0, needs_reset=0;
+	int res=0, flag=0;
 	uint32_t offset;
 	uint32_t size=0;
 	uintptr_t nvmdest=0;
@@ -572,7 +494,13 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	memcpy(key, component, strlen(component));
 	memcpy(key+strlen(component), "_src", 4);
 
-	needs_reset = (strcmp(component, "spl")==0);
+	if(strcmp(component, SLI_SPL_COMPONENT_STR)==0){
+		flag = BS_SPL_UPDATING;
+	} else if (strcmp(component, SLI_BOOT_COMPONENT_STR)==0){
+		flag = BS_BOOT_UPDATING;
+	} else {
+		flag = 0;
+	}
 
 	size = sli_entry_uint32_t(update, component, "size");
 	if(size==0) {
@@ -592,18 +520,18 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	//outputData((uint8_t*)compaddr, 32);
 
 	//Deblob and reblob the component.
-	ddraddr = handle_update_encryption(compaddr, size, !needs_reset);
+	ddraddr = handle_update_encryption(compaddr, size, flag);
 	if(ddraddr == 0){
 		printf("Failed blob operation in update.");
 		return -1;
 	}
 
-	if(needs_reset){
-		nvmdest = sli_entry_uint32_t(layout, "spl", key);
-		printf("Updating SPL - Copying [%d bytes] to NVM address: %" PRIxPTR "\n", size, nvmdest);
+	if(flag != 0){
+		nvmdest = (flag == BS_SPL_UPDATING) ? sli_entry_uint32_t(layout, "spl", key) : SLI_BOOT_UPDATE_ADDR;
+		printf("Updating - Copying [%d bytes] to NVM address: %" PRIxPTR "\n", size, nvmdest);
 		sli_nvm_write(_device, nvmdest, size, (uint8_t*)ddraddr);
-		set_updated_spl();
-		printf("SPL is updated. Resetting... This may take a few seconds.\n");
+		set_updated_flags(flag);
+		printf("Component is updated. Resetting...\n");
 		sli_reset_board();
 		while(1){ udelay(1000); }
 	} else {
@@ -628,17 +556,19 @@ int update_components( slip_t *update, uintptr_t componentaddr, size_t length, s
 	int res=0;
 	int i=0;
 
-	i = get_updated_spl();
-	printf("Update manifest found. Running update. SPL already: %d.\n", i);
+	printf("Update manifest found. BOOT[%d] SPL[%d].\n",
+			get_updated_flags(BS_BOOT_UPDATING), get_updated_flags(BS_SPL_UPDATING));
 
-	//First check to see if SPL needs to be updated.
-	if( sli_findParam( update, SLI_SPL_COMPONENT_STR, "size") && !get_updated_spl()){
-		//This should set an 'updating SPL flag' and reset the board....
-		printf("Running SPL update\n");
+
+	//First check to see if the BOOT binary needs to be updated.
+	if( sli_findParam( update, SLI_BOOT_COMPONENT_STR, "size") && !get_updated_flags(BS_BOOT_UPDATING)){
+		update_component(layout, plexid, update, componentaddr, SLI_BOOT_COMPONENT_STR);
+	} else if( sli_findParam( update, SLI_SPL_COMPONENT_STR, "size") && !get_updated_flags(BS_SPL_UPDATING)){
+		//Then check to see if SPL needs to be updated.
 		update_component(layout, plexid, update, componentaddr, SLI_SPL_COMPONENT_STR);
 	} else {
-		clear_updated_spl();
-		printf("Continuing with non SPL components.\n");
+		clear_updated_flags();
+		printf("Continuing...\n");
 	}
 
 	for(i=0; i<NUM_COMPONENT_NAMES && res==0; i++){
@@ -757,14 +687,6 @@ int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *layout, u
 		return -1;
 	}
 
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
-	res = set_update_zmk();
-	if(res){
-		printf("Failed to set the ZMK in UPDATE!\n");
-		return res;
-	}
-#endif
-
 	printf("Updating components. Manifest: 0x%08x   plnode->content: %p\n", UPDATE_MANIFEST_SIZE, plnode->content);
 	if((res = update_components( updateslip, (uintptr_t)(plnode->content)+UPDATE_MANIFEST_SIZE, plnode->length-UPDATE_MANIFEST_SIZE, layout, plexid )) != 0){
 		printf("Failed to update components\n");
@@ -775,10 +697,6 @@ int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *layout, u
 done:
 	if(updateslip)
 		sli_freeParams(updateslip);
-
-#ifdef CONFIG_SPL_SLIENCRYPTEDBOOT
-	clear_update_zmk();
-#endif
 
 	return res;
 }
@@ -890,7 +808,7 @@ int run_update( unsigned int plexid ){
 	}
 
 	//test_manifest( plexid );
-	clear_updated_spl();
+	clear_updated_flags();
 
 	//Successfully ran update
 	memset((void*)uaddr, plsize, 0);

@@ -64,9 +64,6 @@ static void jump_to_uboot(uint32_t entry)
 	printf("Invoking U-Boot: 0x%08x\n",entry);
 
 	ue();
-
-	// should not return from here
-	printf("U-Boot load FAILED\n");
 }
 
 static void load_coretee( uint8_t plexid ){
@@ -74,11 +71,6 @@ static void load_coretee( uint8_t plexid ){
 	uint32_t coretee_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR , "coretee","CoreTEE",&coretee_size);
 	if(coretee_jump == 0 || coretee_jump == 1) { /*Error values*/
 		printf("Load CoreTEE failed!!!\n");
-#ifdef CONFIG_CORETEE_WATCHDOG
-		printf("Waiting for watchdog to fire...\n");
-#else
-		printf("Watchdog not enabled...\n");
-#endif
 		while(1){ udelay(1000); }
 	}
 
@@ -250,6 +242,8 @@ void update_plex( uint8_t plexid, uint32_t stateval ){
 		boot_state_start( stateval );
 		return;
 	}
+
+	CLEAR_STATE(stateval, (BS_SPL_UPDATING | BS_BOOT_UPDATING));
 
 	if(plexid == PLEX_A_ID) {
 		SET_STATE(stateval, BS_A_VALID);

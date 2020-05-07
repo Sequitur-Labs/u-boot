@@ -8,6 +8,7 @@
 #define SLIENC_NONE                 0
 #define SLIENC_BOOTSERVICES_AES     1
 #define SLIENC_CORETEE_BLOB         2
+#define SLIENC_LICENCE 				3
 
 #define SLIENC_ERROR 1
 

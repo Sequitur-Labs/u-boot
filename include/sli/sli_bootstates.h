@@ -48,9 +48,12 @@ written consent of Sequitur Labs Inc. is forbidden.
 /*
  * We use the Secure Watchdog to reset the board.
  * This clears the SNVS registers, which is where we stored the value
- * of 'spl_updating'. We need to move it to NVM. The BootStates work.
+ * of '*_updating'. We need to move it to NVM. The BootStates work.
  */
-#define BS_SPL_UPDATING (1<<7)
+#define BS_SPL_UPDATING (1<<6)
+#define BS_BOOT_UPDATING (1<<7)
+
+
 #define PLEX_A_ID 1 /*Value of BS_A_PRIMARY bit*/
 #define PLEX_B_ID 0
 

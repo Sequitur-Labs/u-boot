@@ -126,9 +126,9 @@ static int updateAESKey(void)
 }
 
 
-static int diversifyTramp(uint32_t index)
+static int diversifyTramp(uint32_t flags)
 {
-	return mangleComponent(BOOT_BINARY_ADDR,BOOT_BINARY_SIZE,BS_TRAMP,index);
+	return mangleComponent(BOOT_BINARY_ADDR,BOOT_BINARY_SIZE,BS_TRAMP,flags);
 }
 
 
@@ -140,7 +140,8 @@ static int stage_1(void)
 
 	printf("Diversifying BootServices... \n");
 
-	bsres=diversifyTramp(0);
+	//Set all the flags
+	bsres=diversifyTramp(0xFFFFFFFF);
 
 	printf("%s (%d)\n",(bsres) ? "FAILED" : "SUCCESS",bsres);
 
