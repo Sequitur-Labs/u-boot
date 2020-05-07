@@ -36,9 +36,6 @@ written consent of Sequitur Labs Inc. is forbidden.
 #define SLI_BOOT_COMPONENT_STR "boot"
 #define SLI_SPL_COMPONENT_STR "spl"
 
-#define DDR_UPDATE_PAYLOAD_ADDR 0x3E000000
-#define DDR_UPDATE_CONTENT_ADDR 0x3EB00000
-#define DDR_UPDATE_COMPONENT_ADDR 0x3F800000
 #define P(val) (void*)(val)
 
 extern void outputData( uint8_t *data, uint32_t len);
@@ -272,7 +269,7 @@ int verify_update(dernode *signode, dernode *plnode){
 
 	//Need to hash the payload.
 	//Check alignment because we don't have a lot of 'malloc' space to use.
-	memcpy((void*)DDR_UPDATE_CONTENT_ADDR, plnode->content, plnode->length);
+	memcpy((void*)CONFIG_UPDATE_CONTENT_ADDR, plnode->content, plnode->length);
 
 	if((res = extract_ec_signature(&sigbuff, &siglength, signode)) != 0){
 		printf("Failed to extract EC signature from node\n");
@@ -282,7 +279,7 @@ int verify_update(dernode *signode, dernode *plnode){
 	//printf("Update package signature for debugging!!!!\n");
 	//outputData(sigbuff, siglength);
 
-	res = (int)sli_verify_signature(DDR_UPDATE_CONTENT_ADDR, plnode->length, (uint32_t)sigbuff, siglength, (uint32_t)oempk, pksize, 0);
+	res = (int)sli_verify_signature(CONFIG_UPDATE_CONTENT_ADDR, plnode->length, (uint32_t)sigbuff, siglength, (uint32_t)oempk, pksize, 0);
 
 done:
 	if(oempk) free(oempk);
@@ -331,7 +328,7 @@ static void clear_updated_flags( void ){
 }
 
 uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int flag){
-	uintptr_t componentaddr = DDR_UPDATE_COMPONENT_ADDR;
+	uintptr_t componentaddr = CONFIG_UPDATE_COMPONENT_ADDR;
 	uint8_t *buffer = malloc(size);
 	uint32_t res=0;
 
@@ -714,10 +711,10 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	}
 
 	//Just get the header. 512 is the MMC block size and the minimum size to copy
-	printf("Copying update from block offset 0x%08lx   to   DDR: 0x%08x\n", addr, DDR_UPDATE_PAYLOAD_ADDR);
-	sli_mmc_read_dev( update_mmc, offset, SLI_MMC_BLOCK_SIZE, (void*)DDR_UPDATE_PAYLOAD_ADDR);
+	printf("Copying update from block offset 0x%08lx   to   DDR: 0x%08x\n", addr, CONFIG_UPDATE_PAYLOAD_ADDR);
+	sli_mmc_read_dev( update_mmc, offset, SLI_MMC_BLOCK_SIZE, (void*)CONFIG_UPDATE_PAYLOAD_ADDR);
 
-	update = (uint8_t*)DDR_UPDATE_PAYLOAD_ADDR;
+	update = (uint8_t*)CONFIG_UPDATE_PAYLOAD_ADDR;
 
 	parent = asn1_parseSingleNode(update, SLI_MMC_BLOCK_SIZE);
 	if(!parent){
@@ -731,13 +728,13 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	printf("Total update size: %d  %d\n", parent->rawlength, parent->length);
 
 	//Copy the whole update payload to DDR
-	sli_mmc_read_dev( update_mmc, offset, length, (void*)DDR_UPDATE_PAYLOAD_ADDR );
+	sli_mmc_read_dev( update_mmc, offset, length, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
 #else
 	//Just get the header. 512 is the MMC block size and the minimum size to copy
-	printf("Copying update from block offset[%d] 0x%08x   to   DDR: 0x%08x\n", offset, offset, DDR_UPDATE_PAYLOAD_ADDR);
-	sli_nvm_read(_device, offset, 512, (void*)DDR_UPDATE_PAYLOAD_ADDR);
+	printf("Copying update from block offset[%d] 0x%08x   to   DDR: 0x%08x\n", offset, offset, CONFIG_UPDATE_PAYLOAD_ADDR);
+	sli_nvm_read(_device, offset, 512, (void*)CONFIG_UPDATE_PAYLOAD_ADDR);
 
-	update = (uint8_t*)DDR_UPDATE_PAYLOAD_ADDR;
+	update = (uint8_t*)CONFIG_UPDATE_PAYLOAD_ADDR;
 
 	printf("Update payload\n");
 	outputData(update, 32);
@@ -754,10 +751,10 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	printf("Total update size: %zu  %zu\n", parent->rawlength, parent->length);
 
 	//Copy the whole update payload to DDR
-	sli_nvm_read(_device, offset, length, (void*)DDR_UPDATE_PAYLOAD_ADDR );
+	sli_nvm_read(_device, offset, length, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
 
 #endif
-	*mmc_uaddr = DDR_UPDATE_PAYLOAD_ADDR;
+	*mmc_uaddr = CONFIG_UPDATE_PAYLOAD_ADDR;
 	return res;
 }
 

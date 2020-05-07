@@ -307,6 +307,28 @@ config SLI_FUSING
 config SLI_ALLOW_PLAIN
 	bool "Allow un-encrypted components in load"
 	default n
+	
+config UPDATE_PAYLOAD_ADDR
+	hex "DRAM address of where the update payload is copied to."
+	  depends on CORETEE
+	  help
+	    Must be large enough to hold update payload with space for components.
+	  default 0x3E000000	  
+	    
+config UPDATE_CONTENT_ADDR
+	hex "DRAM address where the content of payload is copied (vs signature)."
+	  depends on CORETEE
+	  help
+	    Must be aligned on crypto boundary to allow for signature verification
+	  default 0x3EB00000
+
+config UPDATE_COMPONENT_ADDR
+	hex "DRAM address where individual components are copied"
+	  depends on CORETEE
+	  help
+	    Must be large enough to hold largest update component
+	  default 0x3F800000
+
 
 source "board/atmel/at91rm9200ek/Kconfig"
 source "board/atmel/at91sam9260ek/Kconfig"

@@ -113,4 +113,15 @@
 
 #endif
 
+
+#ifdef CONFIG_CORETEE
+/*
+ * The following values must
+ */
+#define CONFIG_UPDATE_PAYLOAD_ADDR 0x3E000000
+#define CONFIG_UPDATE_CONTENT_ADDR 0x3EB00000
+#define CONFIG_UPDATE_COMPONENT_ADDR 0x3F800000
+
+#endif
+
 #endif
