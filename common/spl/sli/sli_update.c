@@ -385,9 +385,10 @@ int encap_and_save_manifest( slip_t *slip ){
 	int slipsize=0;
 
 	if (slip) {
+		loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)CONFIG_UPDATE_COMPONENT_ADDR);
+		sli_compheader_t *compheader = (sli_compheader_t*)(CONFIG_UPDATE_COMPONENT_ADDR + sizeof(sli_compsize_t));
 		parambuffer=sli_binaryParams(slip,&slipsize);
-		//bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_BOOTSERVICES_AES, CB_KEY_DEVICE);
-		bres = save_component( parambuffer, slipsize, slip->nvm, SLIENC_NONE, CB_KEY_DEVICE);
+		bres = save_component( parambuffer, slipsize, slip->nvm, compheader->encryption, compheader->keyselect);
 	} else {
 		bres=-1;
 	}
