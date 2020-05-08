@@ -399,8 +399,8 @@ int encap_and_save_manifest( slip_t *slip ){
 static char* component_names[NUM_COMPONENT_NAMES]={
 		"coretee",
 		"uboot",
-		"kernel",
-		"fdt"
+		"linux",
+		"dtb"
 };
 
 #define NUM_KEY_NAMES 3
@@ -534,6 +534,10 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	} else {
 
 		nvmdest = sli_entry_uint32_t(layout, (plexid == PLEX_A_ID) ? PLEX_ID_A_STR : PLEX_ID_B_STR, key);
+		if(!nvmdest){
+			printf("Key[%s] not found\n", key);
+			return -1;
+		}
 
 		//Copy blob back to NVM.
 		printf("Copying component to NVM from: 0x%08lx to %" PRIxPTR " numbytes: %d\n", ddraddr, nvmdest, size);
