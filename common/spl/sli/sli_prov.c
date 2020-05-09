@@ -263,6 +263,7 @@ uint32_t getProvisioningStage(void)
 void do_provisioning(uint32_t stage)
 {
 	int stageres=PROV_STOP;
+	unsigned int val=0;
 	int opres=loadLayouts(CONFIG_COMPIDX_ADDR);
 
 	if (!opres)
@@ -286,6 +287,7 @@ void do_provisioning(uint32_t stage)
 	switch (stageres)
 	{
 	case PROV_RESTART:
+		blc_op(SET_BLC_MAX, &val);
 		sli_reset_board();
 		break;
 	case PROV_STOP:
