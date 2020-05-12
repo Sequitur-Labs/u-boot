@@ -31,6 +31,7 @@ u32 sli_verify_signature(uint32_t payload, uint32_t pl_length, uint32_t signatur
 #define SLI_FLAG_GENERATE_CUST_KEY (1)
 #define SLI_FLAG_GENERATE_AES_KEY  (1<<1)
 #define SLI_FLAG_ALLOW_BLOW_FUSES  (1<<2)
+#define SLI_FLAG_ENCRYPT_WITH_CIP  (1<<3)
 
 u32 sli_prov(uint32_t addr,uint32_t len,uint32_t flags);
 u32 sli_get_provstage(void);

@@ -331,6 +331,8 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 	uintptr_t componentaddr = CONFIG_UPDATE_COMPONENT_ADDR;
 	uint8_t *buffer = malloc(size);
 	uint32_t res=0;
+	sli_compsize_t *compsize=NULL;
+	sli_compheader_t *compheader=NULL;
 
 	if(!buffer){
 		printf("Ran out of memory for update!\n");
@@ -338,15 +340,21 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 	}
 	memcpy(buffer, (void*)updateoffset, size);
 	
-	//sli_compsize_t *compsize = (sli_compsize_t*)buffer;
-	sli_compheader_t *compheader = (sli_compheader_t*)(buffer + sizeof(sli_compsize_t));
-	//printf("compsize: 0x%08x,  compheader: 0x%08x\n", compsize, compheader);
-	//printf("Size: %d    payloadsize: %d headersize: %d compsize: %d\n", size, compsize->payloadsize, compsize->headersize, sizeof(sli_compsize_t));
+	compsize = (sli_compsize_t*)buffer;
+	compheader = (sli_compheader_t*)(buffer + sizeof(sli_compsize_t));
+	if(compsize->magic != SLICOMP_MAGIC){
+		printf("IC\n");
+		return 0;
+	}
 
 	if( flag == BS_BOOT_UPDATING ){
-		//Pass boot.cip to bootservices to re-encrypt
-		res = sli_prov((uint32_t)buffer, size, 0);
-		printf("Result of decrypt: 0x%08x\n", res);
+		//Choose to re-encrypt (secure boot) or not (dev).
+		uint32_t flags = (compheader->encryption == SLIENC_NONE) ? 0 : SLI_FLAG_ENCRYPT_WITH_CIP;
+		res = sli_decrypt(buffer, componentaddr);
+
+		//Copy back to the buffer to reencrypt
+		memcpy(buffer, (void*)componentaddr, size);
+		res = sli_prov((uint32_t)buffer, size, flags);
 		memcpy((void*)componentaddr, (void*)buffer, size);
 	}
 	else if(compheader->encryption == SLIENC_NONE) {
@@ -545,10 +553,10 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 		res = sli_nvm_write(_device, nvmdest, size, (void*)ddraddr);
 		if(res){
 			printf("FAILED TO WRITE TO NVM!!!\n");
-		}
-
-		//Update the keys
-		update_keys(layout, plexid, update, component);
+		} else {
+			//Update the keys
+			update_keys(layout, plexid, update, component);
+	 	}
 	}
 
 	return res;

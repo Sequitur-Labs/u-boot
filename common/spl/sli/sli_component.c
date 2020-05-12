@@ -173,6 +173,8 @@ int save_component(void *buffer, size_t size, uintptr_t nvmaddr, uint32_t encryp
 		res = sli_encrypt((uint32_t)buffer, (uint32_t)buffer, size, keyselect);
 		break;
 	default:
+		printf("Enc: [%d] not supported!\n", compheader.encryption);
+		return -1;
 		break;
 	}
 
