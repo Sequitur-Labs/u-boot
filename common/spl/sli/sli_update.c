@@ -35,6 +35,9 @@ written consent of Sequitur Labs Inc. is forbidden.
 #define SLI_BOOT_UPDATE_ADDR 0x00 /*Address in NVM*/
 #define SLI_BOOT_COMPONENT_STR "boot"
 #define SLI_SPL_COMPONENT_STR "spl"
+#define VECTOR_SIX_OFFSET 0x14
+#define AES_CMAC_SIZE 16
+#define SLI_PAD_ALIGN 16
 
 #define P(val) (void*)(val)
 
@@ -349,8 +352,15 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 
 	if( flag == BS_BOOT_UPDATING ){
 		//Choose to re-encrypt (secure boot) or not (dev).
+		uint32_t vecsize=0;
 		uint32_t flags = (compheader->encryption == SLIENC_NONE) ? 0 : SLI_FLAG_ENCRYPT_WITH_CIP;
-		res = sli_decrypt(buffer, componentaddr);
+		res = sli_decrypt((uint32_t)buffer, componentaddr);
+
+		//Pad vector size to 16. add 16.
+		memcpy(&vecsize,(uint8_t*)componentaddr+VECTOR_SIX_OFFSET,4);
+		vecsize += (SLI_PAD_ALIGN-(vecsize%SLI_PAD_ALIGN));
+		vecsize += AES_CMAC_SIZE;
+		memcpy((uint8_t*)componentaddr+VECTOR_SIX_OFFSET, &vecsize, 4);
 
 		//Copy back to the buffer to reencrypt
 		memcpy(buffer, (void*)componentaddr, size);
