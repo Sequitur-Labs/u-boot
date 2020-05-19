@@ -11,22 +11,6 @@
 static slip_t* _component_slip=0;
 
 //-----------------------------------------------
-// static
-__attribute__((unused))
-static void printBuffer(uint8_t* buffer,size_t size)
-{
-	int index;
-	for (index=0;index<(int)size;index++)
-	{
-		printf("0x%02X ",((uint8_t*)buffer)[index]);
-		if ((index+1)%8==0)
-			printf("\n");
-	}
-	printf("\n");
-}
-
-
-//-----------------------------------------------
 
 int loadLayouts(uint32_t addr)
 {

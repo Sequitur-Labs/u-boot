@@ -195,11 +195,11 @@ done:
 }
 
 #define EC_POINT_SIZE 32
-static uint32_t extract_ec_signature(uint8_t** sigbuffer,size_t* sigbuffersize,dernode* signode)
+static uint32_t extract_ec_signature(uint8_t* sigbuffer,size_t sigbuffersize,dernode* signode)
 {
 	uint32_t res=-1;
 	dernode *r_node=NULL, *s_node=NULL;
-	if(!signode ||  asn1_getChildCount(signode) != 2){
+	if(!sigbuffer || !signode ||  asn1_getChildCount(signode) != 2){
 		printf("Failed to get ECC Signature\n");
 		return res;
 	}
@@ -212,39 +212,26 @@ static uint32_t extract_ec_signature(uint8_t** sigbuffer,size_t* sigbuffersize,d
 	{
 		uint8_t* r_int=r_node->content;
 		size_t r_intsize=r_node->length;
-		size_t r_offset=0;
 
 		uint8_t* s_int=s_node->content;
 		size_t s_intsize=s_node->length;
-		size_t s_offset=0;
 
-		if (r_int[0]==0x0)
+		if (r_intsize > EC_POINT_SIZE && r_int[0]==0x0)
 		{
 			r_int+=1;
 			r_intsize-=1;
 		}
 
-		if (s_int[0]==0x0)
+		if (s_intsize > EC_POINT_SIZE && s_int[0]==0x0)
 		{
 			s_int+=1;
 			s_intsize-=1;
 		}
 
-		if (s_intsize<=EC_POINT_SIZE && r_intsize<=EC_POINT_SIZE)
-		{
-			r_offset=EC_POINT_SIZE-r_intsize;
-			s_offset=EC_POINT_SIZE-s_intsize;
-
-			//*sigbuffersize=r_intsize+s_intsize;
-			*sigbuffersize=EC_POINT_SIZE*2;
-			*sigbuffer=(uint8_t*)calloc(1,*sigbuffersize);
-
-			memcpy(*sigbuffer+r_offset,r_int,r_intsize);
-			memcpy(*sigbuffer+EC_POINT_SIZE+s_offset,s_int,s_intsize);
-			res=0;
-		}
-		else
-			res=-1;
+		memset(sigbuffer, 0, sigbuffersize);
+		memcpy(sigbuffer,r_int,r_intsize);
+		memcpy(sigbuffer+EC_POINT_SIZE,s_int,s_intsize);
+		res=0;
 	}
 	else
 		res=-1;
@@ -256,11 +243,19 @@ static uint32_t extract_ec_signature(uint8_t** sigbuffer,size_t* sigbuffersize,d
 int verify_update(dernode *signode, dernode *plnode){
 	int res=0;
 	uint8_t *oempk=NULL, *sigbuff=NULL;
-	size_t siglength;
+	size_t siglength = EC_POINT_SIZE*2;
 	size_t pksize = EC_POINT_SIZE*2;
 
 	oempk = malloc(pksize);
+	sigbuff = malloc(siglength);
+	if(!oempk || !sigbuff){
+		printf("Memory allocation error\n");
+		return -1;
+	}
+
 	memset(oempk, 0, pksize);
+	memset(sigbuff, 0, siglength);
+
 	res = get_oem_public_key(oempk, pksize);
 	if(res){
 		printf("Failed to extract public key");
@@ -274,7 +269,7 @@ int verify_update(dernode *signode, dernode *plnode){
 	//Check alignment because we don't have a lot of 'malloc' space to use.
 	memcpy((void*)CONFIG_UPDATE_CONTENT_ADDR, plnode->content, plnode->length);
 
-	if((res = extract_ec_signature(&sigbuff, &siglength, signode)) != 0){
+	if((res = extract_ec_signature(sigbuff, siglength, signode)) != 0){
 		printf("Failed to extract EC signature from node\n");
 		goto done;
 	}
@@ -286,6 +281,7 @@ int verify_update(dernode *signode, dernode *plnode){
 
 done:
 	if(oempk) free(oempk);
+	if(sigbuff) free(sigbuff);
 	return res;
 }
 #endif /*RUN_ECC_VERIFY*/
@@ -332,15 +328,12 @@ static void clear_updated_flags( void ){
 
 uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int flag){
 	uintptr_t componentaddr = CONFIG_UPDATE_COMPONENT_ADDR;
-	uint8_t *buffer = malloc(size);
+	uint8_t *buffer = (uint8_t*)componentaddr;
 	uint32_t res=0;
 	sli_compsize_t *compsize=NULL;
 	sli_compheader_t *compheader=NULL;
 
-	if(!buffer){
-		printf("Ran out of memory for update!\n");
-		return 0;
-	}
+	//copy component from update package.
 	memcpy(buffer, (void*)updateoffset, size);
 	
 	compsize = (sli_compsize_t*)buffer;
@@ -354,18 +347,27 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 		//Choose to re-encrypt (secure boot) or not (dev).
 		uint32_t vecsize=0;
 		uint32_t flags = (compheader->encryption == SLIENC_NONE) ? 0 : SLI_FLAG_ENCRYPT_WITH_CIP;
-		res = sli_decrypt((uint32_t)buffer, componentaddr);
+		uint8_t *plain = malloc(size);
+
+		if(!plain){
+			printf("Out of memory!\n");
+			return 0;
+		}
+
+		//Pass boot.sle to bootservices to decrypt into 'plain'.
+		res = sli_decrypt((uint32_t)componentaddr, (uint32_t)plain);
 
 		//Pad vector size to 16. add 16.
-		memcpy(&vecsize,(uint8_t*)componentaddr+VECTOR_SIX_OFFSET,4);
+		memcpy(&vecsize,plain+VECTOR_SIX_OFFSET,4);
 		vecsize += (SLI_PAD_ALIGN-(vecsize%SLI_PAD_ALIGN));
 		vecsize += AES_CMAC_SIZE;
-		memcpy((uint8_t*)componentaddr+VECTOR_SIX_OFFSET, &vecsize, 4);
+		memcpy(plain+VECTOR_SIX_OFFSET, &vecsize, 4);
 
 		//Copy back to the buffer to reencrypt
-		memcpy(buffer, (void*)componentaddr, size);
+		memcpy(buffer, (void*)plain, size);
 		res = sli_prov((uint32_t)buffer, size, flags);
-		memcpy((void*)componentaddr, (void*)buffer, size);
+
+		free(plain);
 	}
 	else if(compheader->encryption == SLIENC_NONE) {
 		// no blobs - just copy updateoffset to componentaddr
@@ -386,9 +388,6 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 	}
 
 done:
-	if(buffer)
-		free(buffer);
-
 	printf("[%s] - Done: 0x%08x\n", __func__, res);
 	if(res){
 		return 0;
