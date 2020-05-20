@@ -334,7 +334,7 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 	sli_compheader_t *compheader=NULL;
 
 	//copy component from update package.
-	memcpy(buffer, (void*)updateoffset, size);
+	memmove(buffer, (void*)updateoffset, size);
 	
 	compsize = (sli_compsize_t*)buffer;
 	compheader = (sli_compheader_t*)(buffer + sizeof(sli_compsize_t));
@@ -358,7 +358,7 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 		res = sli_decrypt((uint32_t)componentaddr, (uint32_t)plain);
 
 		//Pad vector size to 16. add 16.
-		memcpy(&vecsize,plain+VECTOR_SIX_OFFSET,4);
+		memmove(&vecsize,plain+VECTOR_SIX_OFFSET,4);
 		vecsize += (SLI_PAD_ALIGN-(vecsize%SLI_PAD_ALIGN));
 		vecsize += AES_CMAC_SIZE;
 		memcpy(plain+VECTOR_SIX_OFFSET, &vecsize, 4);
@@ -370,21 +370,22 @@ uintptr_t handle_update_encryption(uintptr_t updateoffset, uint32_t size, int fl
 		free(plain);
 	}
 	else if(compheader->encryption == SLIENC_NONE) {
-		// no blobs - just copy updateoffset to componentaddr
-		printf("Component is not blobbed. Copying [%d bytes] from: 0x%08lx   to 0x%08lx\n", size, updateoffset, componentaddr);
-		memcpy((void*)componentaddr,(void*)buffer, size);
+		// Nothing to do. 'buffer' is componentaddr;
+		printf("Plain - Nothing to be done.\n");
 	} else if(compheader->encryption == SLIENC_BOOTSERVICES_AES || compheader->encryption == SLIENC_LICENCE) {
 		//Decrypt and re-encrypt
+		printf("Diversifying...\n");
 		res = sli_renew_component((uint32_t)buffer, size);
 		if(res){
 			printf("Renew failed!\n");
 			res=-1;
 			goto done;
 		}
-		memcpy((void*)componentaddr,(void*)buffer, size);
+		//Diversified component now at 'buffer' (componentaddr).
 	} else {
 		//Not implemented...
-		printf("[%s] - Encryption type not implemented...\n", __func__);
+		printf("Encryption type not supported\n");
+		res=-1;
 	}
 
 done:
@@ -397,17 +398,21 @@ done:
 }
 
 int encap_and_save_manifest( slip_t *slip ){
-	int bres=0;
-	uint8_t* parambuffer=NULL;
+	int bres=-1;
 	int slipsize=0;
 
 	if (slip) {
-		loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)CONFIG_UPDATE_COMPONENT_ADDR);
-		sli_compheader_t *compheader = (sli_compheader_t*)(CONFIG_UPDATE_COMPONENT_ADDR + sizeof(sli_compsize_t));
-		parambuffer=sli_binaryParams(slip,&slipsize);
-		bres = save_component( parambuffer, slipsize, slip->nvm, compheader->encryption, compheader->keyselect);
-	} else {
-		bres=-1;
+		if(loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)CONFIG_UPDATE_COMPONENT_ADDR) != 0){
+			uint8_t* parambuffer=NULL;
+			sli_compheader_t *compheader = (sli_compheader_t*)(CONFIG_UPDATE_COMPONENT_ADDR + sizeof(sli_compsize_t));
+			parambuffer=sli_binaryParams(slip,&slipsize);
+			if(parambuffer){
+				bres = save_component( parambuffer, slipsize, slip->nvm, compheader->encryption, compheader->keyselect);
+				free(parambuffer);
+			} else {
+				printf("Out of memory\n");
+			}
+		}
 	}
 	
 	return bres;
@@ -597,7 +602,7 @@ int update_components( slip_t *update, uintptr_t componentaddr, size_t length, s
 	//Save plex manifest back to MMC
 	if(!res){
 		printf("Saving manifest back to NVM: 0x%08lx\n", layout->nvm);
-		encap_and_save_manifest(layout);
+		res = encap_and_save_manifest(layout);
 	} else {
 		printf("Failed to update components. Exiting Update\n");
 	}
@@ -661,8 +666,6 @@ int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *layout, u
 	dernode *algnode, *signode, *plnode;
 	slip_t *updateslip;
 
-	ASN1_FREE(parent);
-	parent = NULL;
 	res = asn1_parseDER(&parent, (uint8_t*)ddr_uaddr, length);
 	if(res){
 		printf("Failed to parse DER update package\n");
@@ -712,11 +715,11 @@ int verify_and_run_update( uintptr_t ddr_uaddr, size_t length, slip_t *layout, u
 		goto done;
 	}
 
-	printf("Done update\n");
 done:
 	if(updateslip)
 		sli_freeParams(updateslip);
-
+	asn1_freeTree(parent, AP_FREENODEONLY);
+	printf("Done update\n");
 	return res;
 }
 
@@ -830,7 +833,8 @@ int run_update( unsigned int plexid ){
 	clear_updated_flags();
 
 	//Successfully ran update
-	memset((void*)uaddr, plsize, 0);
+	//uaddr is set to the DDR location of the update payload in 'copy_update_to_ddr'.
+	memset((void*)uaddr, 0, plsize);
 done:
 	return res;
 }

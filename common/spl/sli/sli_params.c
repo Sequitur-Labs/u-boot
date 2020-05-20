@@ -217,6 +217,10 @@ static uint8_t* createBinaryParams(slip_t* params)
 	size_t buffersize=calculateSize(params);
 
 	res=(uint8_t*)MALLOC(sizeof(slip_header_t)+buffersize);
+	if(!res){
+		return NULL;
+	}
+
 	header=(slip_header_t*)res;
 
 	memcpy(header->magic,MAGIC,8);
