@@ -69,10 +69,7 @@ static void jump_to_uboot(uint32_t entry)
 static void load_coretee( uint8_t plexid ){
 	size_t coretee_size=0;
 	uint32_t coretee_jump=component_setup(plexid == PLEX_A_ID ? PLEX_ID_A_STR : PLEX_ID_B_STR , "coretee","CoreTEE",&coretee_size);
-	if(coretee_jump == 0 || coretee_jump == 1) { /*Error values*/
-		printf("Load CoreTEE failed!!!\n");
-		while(1){ udelay(1000); }
-	}
+	//Error checking done in 'component_setup'
 
 	if (coretee_jump && coretee_size)
 		coretee(coretee_jump,coretee_size);

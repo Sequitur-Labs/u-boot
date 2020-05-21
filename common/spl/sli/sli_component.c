@@ -151,6 +151,11 @@ uint32_t component_setup(const char* plexid, const char* component, const char* 
 	else
 		printf("Could not get plex layout\n");
 
+    if(res == 0 || res == 1 || (imagesize && *imagesize==0)) { /*Error values*/
+    	printf("\n\nLoad [%s] failed!!!\nHalting this attempt!!!\nIf Watchdog is enabled it will trigger a reboot.\n");
+        while(1){ udelay(1000); }
+	}
+
 	return res;
 }
 
