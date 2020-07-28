@@ -52,7 +52,8 @@
 			reg = <0xa0000000 0x300>;
 			clocks = <&sdmmc0_hclk>, <&sdmmc0_gclk>, <&main>;
 			clock-names = "hclock", "multclk", "baseclk";
-			status = "disabled";
+			status = "ok";
+			u-boot,dm-pre-reloc;
 		};
 
 		sdmmc1: sdio-host@b0000000 {
@@ -60,7 +61,8 @@
 			reg = <0xb0000000 0x300>;
 			clocks = <&sdmmc1_hclk>, <&sdmmc1_gclk>, <&main>;
 			clock-names = "hclock", "multclk", "baseclk";
-			status = "disabled";
+			status = "ok";
+			u-boot,dm-pre-reloc;
 		};
 
 		apb {
@@ -703,6 +705,7 @@
 			sfr: sfr@f8030000 {
 				compatible = "atmel,sama5d2-sfr", "syscon";
 				reg = <0xf8030000 0x98>;
+				u-boot,dm-pre-reloc;
 			};
 
 			sckc@f8048050 {
