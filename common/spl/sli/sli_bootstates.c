@@ -384,7 +384,8 @@ void check_boot_state(uint32_t stateval){
 
 void boot_state_start( uint32_t stateval ){
 	//Always decrement boot counter.
-	decrement_blc();
+	// removing since only one plex
+	//decrement_blc();
 
 	//Determine boot state
 	check_boot_state(stateval);
