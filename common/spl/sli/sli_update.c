@@ -549,7 +549,7 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 	if(flag != 0){
 		nvmdest = (flag == BS_SPL_UPDATING) ? sli_entry_uint32_t(layout, "spl", key) : SLI_BOOT_UPDATE_ADDR;
 		printf("Updating - Copying [%d bytes] to NVM address: %" PRIxPTR "\n", size, nvmdest);
-		sli_nvm_write(_device, nvmdest, size, (uint8_t*)ddraddr);
+		sli_nvm_write(SLIDEV_DEFAULT, nvmdest, size, (uint8_t*)ddraddr);
 		set_updated_flags(flag);
 		printf("Component is updated. Resetting...\n");
 		sli_reset_board();
@@ -564,7 +564,7 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 
 		//Copy blob back to NVM.
 		printf("Copying component to NVM from: 0x%08lx to %" PRIxPTR " numbytes: %d\n", ddraddr, nvmdest, size);
-		res = sli_nvm_write(_device, nvmdest, size, (void*)ddraddr);
+		res = sli_nvm_write(SLIDEV_DEFAULT, nvmdest, size, (void*)ddraddr);
 		if(res){
 			printf("FAILED TO WRITE TO NVM!!!\n");
 		} else {
@@ -756,29 +756,52 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	//Copy the whole update payload to DDR
 	sli_mmc_read_dev( update_mmc, offset, length, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
 #else
+
+	int readres=0;
 	
 	//Just get the header. 512 is the MMC block size and the minimum size to copy
 	printf("Copying update from block offset[%d] 0x%08x   to   DDR: 0x%08x\n", offset, offset, CONFIG_UPDATE_PAYLOAD_ADDR);
-	sli_nvm_read(_device, offset, 512, (void*)CONFIG_UPDATE_PAYLOAD_ADDR);
+	readres=sli_nvm_read(_device, offset, 512, (void*)CONFIG_UPDATE_PAYLOAD_ADDR);
 
-	update = (uint8_t*)CONFIG_UPDATE_PAYLOAD_ADDR;
+	if (readres==SLIDEV_ERR_OK)
+	{
 
-	printf("Update payload\n");
-	outputData(update, 32);
+		update = (uint8_t*)CONFIG_UPDATE_PAYLOAD_ADDR;
 
-	parent = asn1_parseSingleNode(update, 512);
-	if(!parent){
-		printf("Failed to get parse update package!\n");
+		printf("Update payload\n");
+		outputData(update, 32);
+
+		parent = asn1_parseSingleNode(update, 512);
+		if(!parent){
+			printf("Failed to get parse update package!\n");
+			return -1;
+		}
+
+		length = parent->rawlength;
+		*plsize = length;
+
+		printf("Total update size: %zu  %zu\n", parent->rawlength, parent->length);
+
+		// adjust payload load to exact 512 length
+		size_t blocks=(length/512);
+		if (length%512)
+			blocks+=1;
+
+		printf("Adjusted size for block device to load: %d blocks    %d bytes\n",blocks,blocks*512);
+		
+		//Copy the whole update payload to DDR
+		readres=sli_nvm_read(_device, offset, blocks*512, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
+		if (readres!=SLIDEV_ERR_OK)
+		{
+			printf("Could not read payload from update device [%d]: %d\n",_device,readres);
+			return -1;
+		}
+	}
+	else
+	{
+		printf("Could not read payload header from update device [%d]: %d\n",_device,readres);
 		return -1;
 	}
-
-	length = parent->rawlength;
-	*plsize = length;
-
-	printf("Total update size: %zu  %zu\n", parent->rawlength, parent->length);
-
-	//Copy the whole update payload to DDR
-	sli_nvm_read(_device, offset, length, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
 
 #endif
 	*mmc_uaddr = CONFIG_UPDATE_PAYLOAD_ADDR;
