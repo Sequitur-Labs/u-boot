@@ -723,6 +723,7 @@ done:
 	return res;
 }
 
+
 int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	dernode *parent=0;
 	uint32_t offset = (uint32_t)(*mmc_uaddr);
@@ -755,6 +756,7 @@ int copy_update_to_ddr( uintptr_t *mmc_uaddr, size_t *plsize ){
 	//Copy the whole update payload to DDR
 	sli_mmc_read_dev( update_mmc, offset, length, (void*)CONFIG_UPDATE_PAYLOAD_ADDR );
 #else
+	
 	//Just get the header. 512 is the MMC block size and the minimum size to copy
 	printf("Copying update from block offset[%d] 0x%08x   to   DDR: 0x%08x\n", offset, offset, CONFIG_UPDATE_PAYLOAD_ADDR);
 	sli_nvm_read(_device, offset, 512, (void*)CONFIG_UPDATE_PAYLOAD_ADDR);
@@ -806,6 +808,7 @@ int run_update( unsigned int plexid ){
 	 * Read where the update payload is stored from the compidx manifest.
 	 */
 	uaddr = sli_entry_uint32_t(component, "p13n", "update");
+	_device=sli_entry_uint32_t(component, "p13n", "update_device");
 #ifdef USE_UPDATE_MMC
 	update_part = get_keyval_uint32(component, "p13n", "update_part");
 	update_access = get_keyval_uint32(component, "p13n", "update_access");
@@ -818,7 +821,7 @@ int run_update( unsigned int plexid ){
 	}
 #endif
 
-	printf("Update at addr: 0x%08lx. Copying to DDR\n", uaddr);
+	printf("Update at addr [device=%d]: 0x%08lx. Copying to DDR\n", _device, uaddr);
 	if((res = copy_update_to_ddr( &uaddr, &plsize )) != 0){
 		printf("Failed to copy the update to DDR\n");
 		goto done;
