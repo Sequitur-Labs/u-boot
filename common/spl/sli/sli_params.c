@@ -435,6 +435,30 @@ uint8_t* sli_binaryParams(slip_t* params,int* size)
 
 
 
+uint8_t* sli_binaryParamsAlign(slip_t* params,int* size,int align)
+{
+	int rawsize=0;
+	uint8_t* parambuffer=sli_binaryParams(params,&rawsize);
+	uint8_t* res=0;
+
+	int alignedsize=(rawsize%align==0) ? rawsize : rawsize+(align-(rawsize%align));
+
+	if (alignedsize!=rawsize)
+	{
+		res=(uint8_t*)malloc(alignedsize);
+		memset(res,0,alignedsize);
+		memcpy(res,parambuffer,rawsize);
+		free(parambuffer);
+	}
+	else
+		res=parambuffer;
+
+	*size=alignedsize;
+	return res;
+}
+
+
+
 list_t* sli_paramSections(slip_t* params)
 {
 	list_t* res=newList();

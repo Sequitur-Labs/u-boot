@@ -405,7 +405,7 @@ int encap_and_save_manifest( slip_t *slip ){
 		if(loadComponentBuffer(CONFIG_COMPIDX_ADDR, (void*)CONFIG_UPDATE_COMPONENT_ADDR) != 0){
 			uint8_t* parambuffer=NULL;
 			sli_compheader_t *compheader = (sli_compheader_t*)(CONFIG_UPDATE_COMPONENT_ADDR + sizeof(sli_compsize_t));
-			parambuffer=sli_binaryParams(slip,&slipsize);
+			parambuffer=sli_binaryParamsAlign(slip,&slipsize,16);
 			if(parambuffer){
 				bres = save_component( parambuffer, slipsize, slip->nvm, compheader->encryption, compheader->keyselect);
 				free(parambuffer);

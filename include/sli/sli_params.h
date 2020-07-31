@@ -69,6 +69,7 @@ void sli_addParam(slip_t* params,slip_key_t* key);
 slip_key_t* sli_newParam(const char* section,const char* name,int type);
 // void sli_writeParams(slip_t* params,uintptr_t dest);
 uint8_t* sli_binaryParams(slip_t* params,int* size);
+uint8_t* sli_binaryParamsAlign(slip_t* params,int* size,int align);
 list_t* sli_paramSections(slip_t* params);
 void sli_freeParamSections(list_t* sectionlist);
 
