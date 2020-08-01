@@ -500,6 +500,43 @@ void update_keys( slip_t *layout, uint8_t plexid, slip_t *update, const char* co
 }
 
 
+
+static void printKey(const char* prefix,slip_key_t* key)
+{
+	char* value=(char*)malloc(key->size+1);
+	memset(value,0,key->size+1);
+	memcpy(value,key->value,key->size);
+	printf("%s%s\n",prefix,value);
+}
+
+void update_spl_version(slip_t* layout,slip_t* update)
+{
+	slip_key_t* oldversion;
+	slip_key_t* newversion;
+
+	oldversion=sli_findParam(layout,"spl","version");
+	newversion=sli_findParam(update,"spl","version");
+
+
+	if (newversion)
+	{
+		if (oldversion)
+		{
+			printKey("Old SPL version: ",oldversion);
+			// delete key if newversion is valid)
+			sli_deleteParamKey(layout,oldversion);
+		}
+		
+		printKey("New SPL version: ",newversion);
+		slip_key_t* key=sli_newParam("spl","version",newversion->type);
+		key->value=MALLOC(newversion->size);
+		key->size=newversion->size;
+		memcpy(key->value,newversion->value,newversion->size);
+
+		sli_addParam(layout,key);
+	}
+}
+
 int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t uaddr, const char* component ){
 	int res=0, flag=0;
 	uint32_t offset;
@@ -551,6 +588,10 @@ int update_component( slip_t *layout, uint8_t plexid, slip_t *update, uint32_t u
 		printf("Updating - Copying [%d bytes] to NVM address: %" PRIxPTR "\n", size, nvmdest);
 		sli_nvm_write(SLIDEV_DEFAULT, nvmdest, size, (uint8_t*)ddraddr);
 		set_updated_flags(flag);
+		update_spl_version(layout,update);
+		printf("Saving manifest back to NVM  (SPL): 0x%08lx\n", layout->nvm);
+		encap_and_save_manifest(layout);
+		
 		printf("Component is updated. Resetting...\n");
 		sli_reset_board();
 		while(1){ udelay(1000); }
